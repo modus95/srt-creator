@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Clock, Zap, X } from 'lucide-react';
+import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Clock, Zap, X, Layers } from 'lucide-react';
 import AudioPlayer from './components/AudioPlayer';
 import { transcribeAudio, translateSubtitles } from './services/geminiService';
 import { SubtitleEntry } from './types';
@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [range, setRange] = useState<[number, number]>([0, 0]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [subtitles, setSubtitles] = useState<SubtitleEntry[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   
@@ -33,6 +34,15 @@ const App: React.FC = () => {
     const extraNames = selectedLanguages.filter(l => !defaultNames.includes(l));
     return [...DEFAULT_LANGUAGES.map(l => l.name), ...extraNames];
   }, [selectedLanguages]);
+
+  const isSelectionConsecutive = useMemo(() => {
+    if (selectedIndices.length < 2) return false;
+    const sorted = [...selectedIndices].sort((a, b) => a - b);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i + 1] !== sorted[i] + 1) return false;
+    }
+    return true;
+  }, [selectedIndices]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -47,6 +57,7 @@ const App: React.FC = () => {
         setRange([0, Math.min(audio.duration, 60)]);
       };
       setSubtitles([]);
+      setSelectedIndices([]);
       setError(null);
     }
   };
@@ -170,10 +181,8 @@ const App: React.FC = () => {
     // Automatic Cascading Adjustments
     if (typeof value === 'string' && validateTimeFormat(value)) {
       if (field === 'endTime' && index < updated.length - 1) {
-        // If end time of N changes, update start time of N+1
         updated[index + 1] = { ...updated[index + 1], startTime: value };
       } else if (field === 'startTime' && index > 0) {
-        // If start time of N changes, update end time of N-1
         updated[index - 1] = { ...updated[index - 1], endTime: value };
       }
     }
@@ -187,12 +196,56 @@ const App: React.FC = () => {
         .filter((_, idx) => idx !== indexToDelete)
         .map((sub, idx) => ({ ...sub, index: idx + 1 }))
     );
+    setSelectedIndices(prev => prev.filter(i => i !== indexToDelete).map(i => i > indexToDelete ? i - 1 : i));
+  };
+
+  const handleToggleSelect = (index: number) => {
+    setSelectedIndices(prev => 
+      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort((a, b) => a - b)
+    );
+  };
+
+  const handleMergeSelected = () => {
+    if (!isSelectionConsecutive) return;
+    
+    const sorted = [...selectedIndices].sort((a, b) => a - b);
+    const firstIdx = sorted[0];
+    const lastIdx = sorted[sorted.length - 1];
+    
+    const mergedText = sorted.map(i => subtitles[i].text).join(' ');
+    const startTime = subtitles[firstIdx].startTime;
+    const endTime = subtitles[lastIdx].endTime;
+    
+    const newSubtitles: SubtitleEntry[] = [];
+    
+    for (let i = 0; i < firstIdx; i++) {
+      newSubtitles.push(subtitles[i]);
+    }
+    
+    newSubtitles.push({
+      index: firstIdx + 1,
+      startTime,
+      endTime,
+      text: mergedText
+    });
+    
+    for (let i = 0; i < subtitles.length; i++) {
+      if (i > lastIdx) {
+        newSubtitles.push(subtitles[i]);
+      }
+    }
+    
+    const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
+    
+    setSubtitles(reindexed);
+    setSelectedIndices([]);
   };
 
   const removeFile = () => {
     setFile(null);
     setAudioUrl(null);
     setSubtitles([]);
+    setSelectedIndices([]);
     setDuration(0);
     setRange([0, 0]);
     setError(null);
@@ -304,10 +357,28 @@ const App: React.FC = () => {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex flex-col">
                 <h2 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">Subtitle Editor</h2>
-                <span className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">Smart Timing Mode</span>
+                <span className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">
+                  {selectedIndices.length > 0 ? `${selectedIndices.length} Selected` : 'Smart Timing Mode'}
+                </span>
               </div>
               
               <div className="flex items-center gap-2">
+                {selectedIndices.length >= 2 && (
+                  <button
+                    onClick={handleMergeSelected}
+                    disabled={!isSelectionConsecutive}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-[11px] transition-all shadow-md animate-in zoom-in-95 ${
+                      isSelectionConsecutive 
+                        ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100' 
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    }`}
+                    title={!isSelectionConsecutive ? "Only consecutive segments can be merged" : "Merge selected segments"}
+                  >
+                    <Layers size={14} />
+                    Merge Selected
+                  </button>
+                )}
+                
                 {subtitles.length > 0 && (
                   <>
                     <button
@@ -343,80 +414,96 @@ const App: React.FC = () => {
                   const isStartInvalid = !validateTimeFormat(sub.startTime);
                   const isEndInvalid = !validateTimeFormat(sub.endTime);
                   const isLogicInvalid = validateTimeFormat(sub.startTime) && validateTimeFormat(sub.endTime) && timeToSeconds(sub.startTime) >= timeToSeconds(sub.endTime);
+                  const isSelected = selectedIndices.includes(idx);
 
                   return (
                     <div 
                       key={idx} 
-                      className={`group relative p-3 rounded-xl border transition-all duration-200 ${
-                        focusedIndex === idx 
-                          ? 'bg-white border-indigo-400 shadow-md shadow-indigo-50 ring-1 ring-indigo-50' 
-                          : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
+                      className={`group relative p-3 rounded-xl border transition-all duration-200 flex gap-3 ${
+                        isSelected 
+                          ? 'bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-100' 
+                          : focusedIndex === idx 
+                            ? 'bg-white border-indigo-400 shadow-md shadow-indigo-50 ring-1 ring-indigo-50' 
+                            : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <span className={`text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-md transition-colors ${
-                            focusedIndex === idx ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
-                          }`}>
-                            {sub.index}
-                          </span>
-                          
-                          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all border ${
-                            isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
-                            focusedIndex === idx ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'
-                          }`}>
-                            <Clock size={10} className={isLogicInvalid ? 'text-red-400' : focusedIndex === idx ? 'text-indigo-400' : 'text-slate-300'} />
-                            <input
-                              type="text"
-                              value={sub.startTime}
-                              onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
-                              onFocus={() => setFocusedIndex(idx)}
-                              className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
-                                isStartInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
-                              }`}
-                              placeholder="00:00.000"
-                            />
-                            <span className="text-slate-300 text-[10px]">—</span>
-                            <input
-                              type="text"
-                              value={sub.endTime}
-                              onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
-                              onFocus={() => setFocusedIndex(idx)}
-                              className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
-                                isEndInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
-                              }`}
-                              placeholder="00:00.000"
-                            />
+                      <div className="flex flex-col items-center pt-1">
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(idx)}
+                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer bg-white appearance-none border checked:bg-indigo-600 checked:border-indigo-600 relative after:content-[''] after:hidden checked:after:block after:absolute after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-white after:border-b-2 after:border-r-2 after:rotate-45"
+                        />
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className={`text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-md transition-colors ${
+                              focusedIndex === idx || isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              {sub.index}
+                            </span>
+                            
+                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all border ${
+                              isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
+                              isSelected ? 'bg-white border-indigo-200' :
+                              focusedIndex === idx ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'
+                            }`}>
+                              <Clock size={10} className={isLogicInvalid ? 'text-red-400' : focusedIndex === idx ? 'text-indigo-400' : 'text-slate-300'} />
+                              <input
+                                type="text"
+                                value={sub.startTime}
+                                onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
+                                onFocus={() => setFocusedIndex(idx)}
+                                className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
+                                  isStartInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
+                                }`}
+                                placeholder="00:00.000"
+                              />
+                              <span className="text-slate-300 text-[10px]">—</span>
+                              <input
+                                type="text"
+                                value={sub.endTime}
+                                onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
+                                onFocus={() => setFocusedIndex(idx)}
+                                className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
+                                  isEndInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
+                                }`}
+                                placeholder="00:00.000"
+                              />
+                            </div>
+
+                            {isLogicInvalid && (
+                              <span className="text-[8px] font-bold text-red-500 uppercase flex items-center gap-1">
+                                <AlertCircle size={10} />
+                                End time must be after start
+                              </span>
+                            )}
                           </div>
 
-                          {isLogicInvalid && (
-                            <span className="text-[8px] font-bold text-red-500 uppercase flex items-center gap-1">
-                              <AlertCircle size={10} />
-                              End time must be after start
-                            </span>
-                          )}
+                          <button
+                            onClick={() => handleDeleteSubtitle(idx)}
+                            className="p-1 rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                            title="Delete segment"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
-
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => handleDeleteSubtitle(idx)}
-                          className="p-1 rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                          title="Delete segment"
-                        >
-                          <X size={14} />
-                        </button>
+                        
+                        <textarea
+                          value={sub.text}
+                          onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
+                          onFocus={() => setFocusedIndex(idx)}
+                          onBlur={() => setFocusedIndex(null)}
+                          className={`w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-normal placeholder-slate-200 text-[13px] transition-colors ${
+                            isSelected ? 'italic text-indigo-900/70' : ''
+                          }`}
+                          rows={1}
+                          style={{ minHeight: '1.5em' }}
+                          placeholder="Type subtitle here..."
+                        />
                       </div>
-                      
-                      <textarea
-                        value={sub.text}
-                        onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
-                        onFocus={() => setFocusedIndex(idx)}
-                        onBlur={() => setFocusedIndex(null)}
-                        className="w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-normal placeholder-slate-200 text-[13px] transition-colors"
-                        rows={1}
-                        style={{ minHeight: '1.5em' }}
-                        placeholder="Type subtitle here..."
-                      />
                       
                       {focusedIndex === idx && (
                         <div className="absolute right-2 bottom-2 flex gap-0.5 animate-in fade-in duration-300">
