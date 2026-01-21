@@ -322,7 +322,6 @@ const App: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Sidebar - Widened to 4/12 */}
         <div className="lg:col-span-4 space-y-5">
           {!file ? (
             <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:border-indigo-400 transition-all bg-white shadow-sm group">
@@ -413,7 +412,6 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Editor - Narrowed to 8/12 */}
         <div className="lg:col-span-8">
           <div className="bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col h-[700px] overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -484,7 +482,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-slate-50/30 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30 custom-scrollbar">
               {subtitles.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4 animate-in fade-in duration-500">
                   <div className="p-6 bg-white rounded-full shadow-inner"><FileText size={48} className="opacity-10" /></div>
@@ -496,104 +494,123 @@ const App: React.FC = () => {
                   const isEndInvalid = !validateTimeFormat(sub.endTime);
                   const isLogicInvalid = validateTimeFormat(sub.startTime) && validateTimeFormat(sub.endTime) && timeToSeconds(sub.startTime) >= timeToSeconds(sub.endTime);
                   const isSelected = selectedIndices.includes(idx);
+                  const isFocused = focusedIndex === idx;
+                  const isNeighborSelected = idx > 0 && selectedIndices.includes(idx - 1) && isSelected;
 
                   return (
-                    <div 
-                      key={idx} 
-                      className={`group relative p-3 rounded-xl border transition-all duration-200 flex gap-3 ${
-                        isSelected 
-                          ? 'bg-indigo-50/50 border-indigo-200 ring-1 ring-indigo-100' 
-                          : focusedIndex === idx 
-                            ? 'bg-white border-indigo-400 shadow-md shadow-indigo-50 ring-1 ring-indigo-50' 
-                            : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center pt-1">
-                        <input 
-                          type="checkbox" 
-                          checked={isSelected}
-                          onChange={() => handleToggleSelect(idx)}
-                          className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer bg-white appearance-none border checked:bg-indigo-600 checked:border-indigo-600 relative after:content-[''] after:hidden checked:after:block after:absolute after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-white after:border-b-2 after:border-r-2 after:rotate-45"
-                        />
-                      </div>
+                    <div key={idx} className="relative group">
+                      {/* Connector Line for consecutive selection */}
+                      {isNeighborSelected && (
+                        <div className="absolute -top-3 left-7 w-0.5 h-3 bg-indigo-300 z-0 opacity-50" />
+                      )}
+                      
+                      <div 
+                        className={`relative p-3.5 rounded-2xl border transition-all duration-300 flex gap-3 z-10 ${
+                          isSelected 
+                            ? 'bg-indigo-50/60 border-2 border-dashed border-indigo-400 shadow-sm' 
+                            : isFocused 
+                              ? 'bg-indigo-50/30 border-indigo-500 shadow-lg shadow-indigo-100/50 ring-4 ring-indigo-50 scale-[1.005]' 
+                              : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-md'
+                        }`}
+                      >
+                        {/* Left focus indicator bar */}
+                        <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full transition-all duration-300 ${
+                          isFocused ? 'bg-indigo-500 scale-y-100' : 'bg-transparent scale-y-0'
+                        }`} />
 
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <span className={`text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-md transition-colors ${
-                              focusedIndex === idx || isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
-                            }`}>
-                              {sub.index}
-                            </span>
-                            
-                            <div className={`flex items-center gap-2 px-2.5 py-1 rounded-md transition-all border ${
-                              isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
-                              isSelected ? 'bg-white border-indigo-200' :
-                              focusedIndex === idx ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'
-                            }`}>
-                              <Clock size={11} className={isLogicInvalid ? 'text-red-400' : focusedIndex === idx ? 'text-indigo-400' : 'text-slate-300'} />
-                              <input
-                                type="text"
-                                value={sub.startTime}
-                                onBlur={saveToHistoryAfterEdit}
-                                onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
-                                onFocus={() => setFocusedIndex(idx)}
-                                className={`text-[11px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
-                                  isStartInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
-                                }`}
-                                placeholder="00:00.000"
-                              />
-                              <span className="text-slate-300 text-[11px]">—</span>
-                              <input
-                                type="text"
-                                value={sub.endTime}
-                                onBlur={saveToHistoryAfterEdit}
-                                onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
-                                onFocus={() => setFocusedIndex(idx)}
-                                className={`text-[11px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
-                                  isEndInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
-                                }`}
-                                placeholder="00:00.000"
-                              />
+                        <div className="flex flex-col items-center pt-1.5">
+                          <input 
+                            type="checkbox" 
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(idx)}
+                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer bg-white appearance-none border checked:bg-indigo-600 checked:border-indigo-600 relative after:content-[''] after:hidden checked:after:block after:absolute after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-white after:border-b-2 after:border-r-2 after:rotate-45 transition-all"
+                          />
+                        </div>
+
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2.5">
+                            <div className="flex items-center gap-3">
+                              {/* Index badge now stays stable/neutral as requested */}
+                              <span className="text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition-all duration-300">
+                                {sub.index}
+                              </span>
+                              
+                              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all border ${
+                                isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
+                                isFocused ? 'bg-white border-indigo-200 shadow-sm' :
+                                isSelected ? 'bg-white border-indigo-300' : 'bg-slate-50 border-slate-100'
+                              }`}>
+                                <Clock size={12} className={isLogicInvalid ? 'text-red-400' : isFocused ? 'text-indigo-500' : isSelected ? 'text-indigo-600' : 'text-slate-300'} />
+                                <input
+                                  type="text"
+                                  value={sub.startTime}
+                                  onBlur={saveToHistoryAfterEdit}
+                                  onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
+                                  onFocus={() => setFocusedIndex(idx)}
+                                  className={`text-[12px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
+                                    isStartInvalid ? 'text-red-500 underline decoration-dotted' : isFocused || isSelected ? 'text-indigo-900' : 'text-slate-600'
+                                  }`}
+                                  placeholder="00:00.000"
+                                />
+                                <span className="text-slate-300 text-[11px]">—</span>
+                                <input
+                                  type="text"
+                                  value={sub.endTime}
+                                  onBlur={saveToHistoryAfterEdit}
+                                  onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
+                                  onFocus={() => setFocusedIndex(idx)}
+                                  className={`text-[12px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
+                                    isEndInvalid ? 'text-red-500 underline decoration-dotted' : isFocused || isSelected ? 'text-indigo-900' : 'text-slate-600'
+                                  }`}
+                                  placeholder="00:00.000"
+                                />
+                              </div>
+
+                              {isLogicInvalid && (
+                                <span className="text-[9px] font-bold text-red-500 uppercase flex items-center gap-1 animate-in fade-in zoom-in">
+                                  <AlertCircle size={10} />
+                                  Invalid range
+                                </span>
+                              )}
+                              
+                              {isSelected && !isFocused && (
+                                <span className="text-[9px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">Selected</span>
+                              )}
                             </div>
 
-                            {isLogicInvalid && (
-                              <span className="text-[8px] font-bold text-red-500 uppercase flex items-center gap-1">
-                                <AlertCircle size={10} />
-                                Invalid range
-                              </span>
-                            )}
+                            <button
+                              onClick={() => handleDeleteSubtitle(idx)}
+                              className={`p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all ${
+                                isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                              }`}
+                              title="Delete segment"
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
-
-                          <button
-                            onClick={() => handleDeleteSubtitle(idx)}
-                            className="p-1 rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                            title="Delete segment"
-                          >
-                            <X size={14} />
-                          </button>
+                          
+                          <textarea
+                            value={sub.text}
+                            onBlur={saveToHistoryAfterEdit}
+                            onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
+                            onFocus={() => setFocusedIndex(idx)}
+                            className={`w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-relaxed placeholder-slate-200 text-[14px] transition-all duration-300 ${
+                              isSelected ? 'italic text-indigo-900/80 font-semibold' : isFocused ? 'text-slate-900 font-semibold' : ''
+                            }`}
+                            rows={1}
+                            style={{ minHeight: '1.5em' }}
+                            placeholder="Type subtitle here..."
+                          />
                         </div>
                         
-                        <textarea
-                          value={sub.text}
-                          onBlur={saveToHistoryAfterEdit}
-                          onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
-                          onFocus={() => setFocusedIndex(idx)}
-                          className={`w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-normal placeholder-slate-200 text-[13px] transition-colors ${
-                            isSelected ? 'italic text-indigo-900/70' : ''
-                          }`}
-                          rows={1}
-                          style={{ minHeight: '1.5em' }}
-                          placeholder="Type subtitle here..."
-                        />
+                        {isFocused && (
+                          <div className="absolute right-3 bottom-3 flex gap-1 animate-in fade-in duration-300">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-100"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-200"></div>
+                          </div>
+                        )}
                       </div>
-                      
-                      {focusedIndex === idx && (
-                        <div className="absolute right-2 bottom-2 flex gap-0.5 animate-in fade-in duration-300">
-                          <div className="w-1 h-1 rounded-full bg-indigo-400 animate-pulse"></div>
-                          <div className="w-1 h-1 rounded-full bg-indigo-400 animate-pulse delay-100"></div>
-                        </div>
-                      )}
                     </div>
                   );
                 })
@@ -605,11 +622,11 @@ const App: React.FC = () => {
                  <div className="h-1 w-12 bg-slate-100 rounded-full overflow-hidden">
                    <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: subtitles.length > 0 ? '100%' : '0%' }} />
                  </div>
-                 <span className="text-[9px] text-slate-300 font-bold uppercase">Ready</span>
+                 <span className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">Editor Active</span>
                </div>
                {subtitles.length > 0 && (
                  <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping" />
+                   <span className={`w-1.5 h-1.5 rounded-full ${isProcessing ? 'bg-amber-400 animate-pulse' : 'bg-green-400 animate-ping'}`} />
                    {subtitles.length} SEGMENTS SYNCED
                  </div>
                )}
@@ -620,7 +637,7 @@ const App: React.FC = () => {
       
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 5px;
+          width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
