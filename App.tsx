@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Clock, Zap } from 'lucide-react';
+import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Clock, Zap, X } from 'lucide-react';
 import AudioPlayer from './components/AudioPlayer';
 import { transcribeAudio, translateSubtitles } from './services/geminiService';
 import { SubtitleEntry } from './types';
@@ -179,6 +179,14 @@ const App: React.FC = () => {
     }
 
     setSubtitles(updated);
+  };
+
+  const handleDeleteSubtitle = (indexToDelete: number) => {
+    setSubtitles(prev => 
+      prev
+        .filter((_, idx) => idx !== indexToDelete)
+        .map((sub, idx) => ({ ...sub, index: idx + 1 }))
+    );
   };
 
   const removeFile = () => {
@@ -388,6 +396,15 @@ const App: React.FC = () => {
                             </span>
                           )}
                         </div>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDeleteSubtitle(idx)}
+                          className="p-1 rounded-md text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
+                          title="Delete segment"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
                       
                       <textarea
