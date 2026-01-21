@@ -12,6 +12,8 @@ const DEFAULT_LANGUAGES = [
   { name: 'German', code: 'de' }
 ];
 
+const TIME_REGEX = /^(\d+):([0-5]\d)\.(\d{3})$/;
+
 const App: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -150,9 +152,32 @@ const App: React.FC = () => {
     }
   };
 
+  const validateTimeFormat = (time: string) => TIME_REGEX.test(time);
+
+  const timeToSeconds = (time: string) => {
+    const match = time.match(TIME_REGEX);
+    if (!match) return 0;
+    const mins = parseInt(match[1]);
+    const secs = parseInt(match[2]);
+    const ms = parseInt(match[3]);
+    return mins * 60 + secs + ms / 1000;
+  };
+
   const handleSubtitleChange = (index: number, field: keyof SubtitleEntry, value: string | number) => {
     const updated = [...subtitles];
     updated[index] = { ...updated[index], [field]: value };
+
+    // Automatic Cascading Adjustments
+    if (typeof value === 'string' && validateTimeFormat(value)) {
+      if (field === 'endTime' && index < updated.length - 1) {
+        // If end time of N changes, update start time of N+1
+        updated[index + 1] = { ...updated[index + 1], startTime: value };
+      } else if (field === 'startTime' && index > 0) {
+        // If start time of N changes, update end time of N-1
+        updated[index - 1] = { ...updated[index - 1], endTime: value };
+      }
+    }
+
     setSubtitles(updated);
   };
 
@@ -166,63 +191,63 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-12">
-      <header className="mb-12 text-center">
-        <div className="inline-flex items-center justify-center p-3 bg-indigo-100 text-indigo-600 rounded-2xl mb-4 shadow-sm">
-          <FileText size={32} />
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <header className="mb-8 text-center">
+        <div className="inline-flex items-center justify-center p-2.5 bg-indigo-100 text-indigo-600 rounded-2xl mb-3 shadow-sm">
+          <FileText size={28} />
         </div>
-        <h1 className="text-4xl font-extrabold text-slate-900 mb-2 tracking-tight">SRT Creator Pro</h1>
-        <p className="text-slate-500 text-lg">AI transcription & multi-language subtitles</p>
+        <h1 className="text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">SRT Creator Pro</h1>
+        <p className="text-slate-500 text-sm">AI transcription & multi-language subtitles</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-4 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="lg:col-span-3 space-y-5">
           {!file ? (
-            <div className="border-2 border-dashed border-slate-300 rounded-3xl p-12 text-center hover:border-indigo-400 transition-all bg-white shadow-sm group">
+            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:border-indigo-400 transition-all bg-white shadow-sm group">
               <input type="file" accept="audio/*" onChange={handleFileUpload} className="hidden" id="audio-upload" />
               <label htmlFor="audio-upload" className="cursor-pointer">
-                <Upload className="mx-auto mb-4 text-slate-300 group-hover:text-indigo-400 transition-colors" size={48} />
-                <span className="block text-lg font-semibold text-slate-700">Upload Audio</span>
-                <span className="text-sm text-slate-400">Click to browse or drop files</span>
+                <Upload className="mx-auto mb-3 text-slate-300 group-hover:text-indigo-400 transition-colors" size={40} />
+                <span className="block text-base font-semibold text-slate-700">Upload Audio</span>
+                <span className="text-[11px] text-slate-400 font-medium">Click or drop files</span>
               </label>
             </div>
           ) : (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Music size={18} /></div>
-                  <span className="font-semibold text-slate-700 truncate text-sm">{file.name}</span>
+            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg shrink-0"><Music size={14} /></div>
+                  <span className="font-semibold text-slate-700 truncate text-[11px]">{file.name}</span>
                 </div>
-                <button onClick={removeFile} className="text-slate-400 hover:text-red-500 transition-colors p-2" title="Remove file"><Trash2 size={18} /></button>
+                <button onClick={removeFile} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Remove file"><Trash2 size={16} /></button>
               </div>
 
               {audioUrl && <AudioPlayer src={audioUrl} duration={duration} range={range} onRangeChange={setRange} />}
 
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between gap-2 text-slate-800 font-bold mb-2">
-                  <div className="flex items-center gap-2">
-                    <Globe size={18} className={`text-indigo-600 ${preserveSlang ? 'animate-pulse' : ''}`} />
-                    <h2>Translate To</h2>
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between gap-2 text-slate-800 font-bold mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Globe size={16} className={`text-indigo-600 ${preserveSlang ? 'animate-pulse' : ''}`} />
+                    <h2 className="text-xs uppercase tracking-wider">Target</h2>
                   </div>
                   <button 
                     onClick={() => setPreserveSlang(!preserveSlang)}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-all border ${
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] uppercase tracking-wider transition-all border ${
                       preserveSlang 
                         ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold shadow-sm' 
                         : 'bg-slate-50 border-slate-100 text-slate-400'
                     }`}
-                    title="Translate with teenage slang/tone preservation"
+                    title="Translate with slang preservation"
                   >
-                    <Zap size={10} className={preserveSlang ? 'fill-amber-500' : ''} />
-                    Slang Mode
+                    <Zap size={8} className={preserveSlang ? 'fill-amber-500' : ''} />
+                    Slang
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {availableLanguages.map(lang => (
                     <button
                       key={lang}
                       onClick={() => toggleLanguage(lang)}
-                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
                         selectedLanguages.includes(lang)
                           ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100'
                           : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
@@ -232,17 +257,17 @@ const App: React.FC = () => {
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-1.5 pt-1">
                   <input
                     type="text"
-                    placeholder="Other (e.g. French)"
+                    placeholder="Add lang..."
                     value={customLanguage}
                     onChange={e => setCustomLanguage(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addCustomLanguage()}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   />
-                  <button onClick={addCustomLanguage} className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors">
-                    <Plus size={18} />
+                  <button onClick={addCustomLanguage} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+                    <Plus size={14} />
                   </button>
                 </div>
               </div>
@@ -250,15 +275,15 @@ const App: React.FC = () => {
               <button
                 onClick={handleTranscribe}
                 disabled={isProcessing}
-                className="w-full bg-indigo-600 text-white py-4 px-6 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50 transition-all shadow-xl shadow-indigo-100"
+                className="w-full bg-indigo-600 text-white py-3 px-5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50 transition-all shadow-lg shadow-indigo-100"
               >
-                {isProcessing ? <Loader2 className="animate-spin" /> : <Play size={20} />}
-                {subtitles.length > 0 ? "Regenerate Base Transcription" : "Generate Initial Subtitles"}
+                {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
+                {subtitles.length > 0 ? "Regenerate" : "Transcribe"}
               </button>
               
               {error && (
-                <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-xs font-medium animate-in zoom-in-95 duration-200">
-                  <AlertCircle size={14} className="shrink-0" />
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-[10px] font-medium">
+                  <AlertCircle size={12} className="shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
@@ -266,116 +291,139 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="lg:col-span-8">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col h-[750px] overflow-hidden">
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-wrap gap-4">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Subtitle Editor</h2>
-                <p className="text-xs text-slate-400 font-medium">Refine the base transcription for accuracy</p>
+        <div className="lg:col-span-9">
+          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col h-[700px] overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex flex-col">
+                <h2 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">Subtitle Editor</h2>
+                <span className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">Smart Timing Mode</span>
               </div>
               
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {subtitles.length > 0 && (
                   <>
                     <button
                       onClick={downloadOriginal}
                       disabled={isProcessing}
-                      className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm"
+                      className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-[11px] hover:bg-slate-50 transition-all"
                     >
-                      <Save size={18} className="text-slate-400" />
-                      Original
+                      <Save size={14} className="text-slate-400" />
+                      Save SRT
                     </button>
                     
                     <button
                       onClick={translateAndDownloadAll}
                       disabled={isProcessing || selectedLanguages.length === 0}
-                      className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-100"
+                      className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-[11px] hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-100"
                     >
-                      {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
-                      Translate & Export
+                      {isProcessing ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />}
+                      Export Translated
                     </button>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-5 scroll-smooth bg-slate-50/30 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-slate-50/30 custom-scrollbar">
               {subtitles.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4 animate-in fade-in duration-500">
-                  <div className="p-8 bg-white rounded-full shadow-inner"><FileText size={64} className="opacity-10" /></div>
-                  <p className="font-semibold text-slate-400 italic">Generated segments will appear here</p>
+                  <div className="p-6 bg-white rounded-full shadow-inner"><FileText size={48} className="opacity-10" /></div>
+                  <p className="font-semibold text-slate-400 italic text-xs">Waiting for transcription results...</p>
                 </div>
               ) : (
-                subtitles.map((sub, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`group relative p-6 rounded-2xl border transition-all duration-300 ${
-                      focusedIndex === idx 
-                        ? 'bg-white border-indigo-400 shadow-xl shadow-indigo-50 ring-1 ring-indigo-100 translate-x-1' 
-                        : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        <span className={`text-[11px] font-black w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
-                          focusedIndex === idx ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {sub.index}
-                        </span>
-                        
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
-                          focusedIndex === idx ? 'bg-indigo-50/50 border-indigo-100' : 'bg-slate-50 border-slate-100'
-                        }`}>
-                          <Clock size={12} className={focusedIndex === idx ? 'text-indigo-400' : 'text-slate-300'} />
-                          <input
-                            type="text"
-                            value={sub.startTime}
-                            onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
-                            onFocus={() => setFocusedIndex(idx)}
-                            className="text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-slate-600 text-center"
-                          />
-                          <span className="text-slate-200">/</span>
-                          <input
-                            type="text"
-                            value={sub.endTime}
-                            onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
-                            onFocus={() => setFocusedIndex(idx)}
-                            className="text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-slate-600 text-center"
-                          />
+                subtitles.map((sub, idx) => {
+                  const isStartInvalid = !validateTimeFormat(sub.startTime);
+                  const isEndInvalid = !validateTimeFormat(sub.endTime);
+                  const isLogicInvalid = validateTimeFormat(sub.startTime) && validateTimeFormat(sub.endTime) && timeToSeconds(sub.startTime) >= timeToSeconds(sub.endTime);
+
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`group relative p-3 rounded-xl border transition-all duration-200 ${
+                        focusedIndex === idx 
+                          ? 'bg-white border-indigo-400 shadow-md shadow-indigo-50 ring-1 ring-indigo-50' 
+                          : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-md transition-colors ${
+                            focusedIndex === idx ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
+                          }`}>
+                            {sub.index}
+                          </span>
+                          
+                          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all border ${
+                            isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
+                            focusedIndex === idx ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'
+                          }`}>
+                            <Clock size={10} className={isLogicInvalid ? 'text-red-400' : focusedIndex === idx ? 'text-indigo-400' : 'text-slate-300'} />
+                            <input
+                              type="text"
+                              value={sub.startTime}
+                              onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
+                              onFocus={() => setFocusedIndex(idx)}
+                              className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
+                                isStartInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
+                              }`}
+                              placeholder="00:00.000"
+                            />
+                            <span className="text-slate-300 text-[10px]">—</span>
+                            <input
+                              type="text"
+                              value={sub.endTime}
+                              onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
+                              onFocus={() => setFocusedIndex(idx)}
+                              className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
+                                isEndInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
+                              }`}
+                              placeholder="00:00.000"
+                            />
+                          </div>
+
+                          {isLogicInvalid && (
+                            <span className="text-[8px] font-bold text-red-500 uppercase flex items-center gap-1">
+                              <AlertCircle size={10} />
+                              End time must be after start
+                            </span>
+                          )}
                         </div>
                       </div>
+                      
+                      <textarea
+                        value={sub.text}
+                        onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
+                        onFocus={() => setFocusedIndex(idx)}
+                        onBlur={() => setFocusedIndex(null)}
+                        className="w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-normal placeholder-slate-200 text-[13px] transition-colors"
+                        rows={1}
+                        style={{ minHeight: '1.5em' }}
+                        placeholder="Type subtitle here..."
+                      />
+                      
+                      {focusedIndex === idx && (
+                        <div className="absolute right-2 bottom-2 flex gap-0.5 animate-in fade-in duration-300">
+                          <div className="w-1 h-1 rounded-full bg-indigo-400 animate-pulse"></div>
+                          <div className="w-1 h-1 rounded-full bg-indigo-400 animate-pulse delay-100"></div>
+                        </div>
+                      )}
                     </div>
-                    
-                    <textarea
-                      value={sub.text}
-                      onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
-                      onFocus={() => setFocusedIndex(idx)}
-                      onBlur={() => setFocusedIndex(null)}
-                      className="w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-relaxed placeholder-slate-300 text-lg transition-colors"
-                      rows={2}
-                      placeholder="Transcribed text content..."
-                    />
-                    
-                    {focusedIndex === idx && (
-                      <div className="absolute right-4 bottom-4 flex gap-1 animate-in slide-in-from-right-2 duration-200">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse delay-75"></div>
-                      </div>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             
-            <div className="py-4 px-8 bg-white border-t border-slate-100 flex items-center justify-between">
-               <div className="flex gap-4">
-                 <div className="h-2 w-16 bg-slate-100 rounded-full overflow-hidden">
+            <div className="py-2.5 px-6 bg-white border-t border-slate-100 flex items-center justify-between">
+               <div className="flex items-center gap-2">
+                 <div className="h-1 w-12 bg-slate-100 rounded-full overflow-hidden">
                    <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: subtitles.length > 0 ? '100%' : '0%' }} />
                  </div>
+                 <span className="text-[9px] text-slate-300 font-bold uppercase">Ready</span>
                </div>
                {subtitles.length > 0 && (
-                 <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] animate-pulse">
-                   {subtitles.length} SEGMENTS ACTIVE
+                 <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping" />
+                   {subtitles.length} SEGMENTS SYNCED
                  </div>
                )}
             </div>
@@ -385,7 +433,7 @@ const App: React.FC = () => {
       
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
+          width: 5px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
@@ -396,6 +444,9 @@ const App: React.FC = () => {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #cbd5e1;
+        }
+        textarea {
+          field-sizing: content;
         }
       `}</style>
     </div>
