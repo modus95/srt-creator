@@ -322,7 +322,8 @@ const App: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-3 space-y-5">
+        {/* Sidebar - Widened to 4/12 */}
+        <div className="lg:col-span-4 space-y-5">
           {!file ? (
             <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:border-indigo-400 transition-all bg-white shadow-sm group">
               <input type="file" accept="audio/*" onChange={handleFileUpload} className="hidden" id="audio-upload" />
@@ -412,7 +413,8 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="lg:col-span-9">
+        {/* Editor - Narrowed to 8/12 */}
+        <div className="lg:col-span-8">
           <div className="bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col h-[700px] overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex flex-col">
@@ -423,7 +425,6 @@ const App: React.FC = () => {
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Undo/Redo Controls */}
                 <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1 mr-2">
                   <button
                     onClick={undo}
@@ -525,31 +526,31 @@ const App: React.FC = () => {
                               {sub.index}
                             </span>
                             
-                            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all border ${
+                            <div className={`flex items-center gap-2 px-2.5 py-1 rounded-md transition-all border ${
                               isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
                               isSelected ? 'bg-white border-indigo-200' :
                               focusedIndex === idx ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'
                             }`}>
-                              <Clock size={10} className={isLogicInvalid ? 'text-red-400' : focusedIndex === idx ? 'text-indigo-400' : 'text-slate-300'} />
+                              <Clock size={11} className={isLogicInvalid ? 'text-red-400' : focusedIndex === idx ? 'text-indigo-400' : 'text-slate-300'} />
                               <input
                                 type="text"
                                 value={sub.startTime}
                                 onBlur={saveToHistoryAfterEdit}
                                 onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
                                 onFocus={() => setFocusedIndex(idx)}
-                                className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
+                                className={`text-[11px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
                                   isStartInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
                                 }`}
                                 placeholder="00:00.000"
                               />
-                              <span className="text-slate-300 text-[10px]">—</span>
+                              <span className="text-slate-300 text-[11px]">—</span>
                               <input
                                 type="text"
                                 value={sub.endTime}
                                 onBlur={saveToHistoryAfterEdit}
                                 onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
                                 onFocus={() => setFocusedIndex(idx)}
-                                className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
+                                className={`text-[11px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
                                   isEndInvalid ? 'text-red-500 underline decoration-dotted' : 'text-slate-600'
                                 }`}
                                 placeholder="00:00.000"
@@ -559,7 +560,7 @@ const App: React.FC = () => {
                             {isLogicInvalid && (
                               <span className="text-[8px] font-bold text-red-500 uppercase flex items-center gap-1">
                                 <AlertCircle size={10} />
-                                End time must be after start
+                                Invalid range
                               </span>
                             )}
                           </div>
