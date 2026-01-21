@@ -1,0 +1,7 @@
+{
+  "name": "SRT Creator",
+  "description": "Upload audio files, select a time range, and generate SRT subtitles using Gemini 3 Flash. Edit and download your subtitles instantly.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

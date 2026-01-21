@@ -1,0 +1,37 @@
+
+import { SubtitleEntry } from '../types';
+
+export const convertToSRT = (entries: SubtitleEntry[]): string => {
+  return entries
+    .map((entry) => {
+      const formatTime = (time: string) => {
+        // Handle input like "MM:SS.mmm" or "M:S.m"
+        let [minsPart, secsPart] = time.split(':');
+        if (!secsPart) secsPart = "00.000";
+        
+        let [seconds, millis] = secsPart.split('.');
+        if (!millis) millis = "000";
+        
+        const totalMinutes = parseInt(minsPart, 10) || 0;
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        
+        const h = hours.toString().padStart(2, '0');
+        const m = minutes.toString().padStart(2, '0');
+        const s = seconds.padStart(2, '0');
+        const ms = millis.padEnd(3, '0').slice(0, 3);
+        
+        return `${h}:${m}:${s},${ms}`;
+      };
+
+      return `${entry.index}\n${formatTime(entry.startTime)} --> ${formatTime(entry.endTime)}\n${entry.text}\n`;
+    })
+    .join('\n');
+};
+
+export const formatSecondsToMMSS = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 1000);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+};
