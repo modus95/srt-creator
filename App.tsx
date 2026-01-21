@@ -1,19 +1,17 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Clock, Zap, X, Layers, Undo2, Redo2 } from 'lucide-react';
+import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Zap, Layers, Undo2, Redo2 } from 'lucide-react';
 import AudioPlayer from './components/AudioPlayer';
+import SubtitleRow from './components/SubtitleEditor/SubtitleRow';
+import { useSubtitleHistory } from './hooks/useSubtitleHistory';
 import { transcribeAudio, translateSubtitles } from './services/geminiService';
 import { SubtitleEntry } from './types';
-import { convertToSRT, formatSecondsToMMSS } from './utils/srtParser';
+import { convertToSRT, formatSecondsToMMSS, validateTimeFormat } from './utils/srtParser';
 
 const DEFAULT_LANGUAGES = [
   { name: 'English', code: 'en' },
   { name: 'Dutch', code: 'nl' },
   { name: 'German', code: 'de' }
 ];
-
-const TIME_REGEX = /^(\d+):([0-5]\d)\.(\d{3})$/;
-const MAX_HISTORY = 50;
 
 const App: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -25,56 +23,37 @@ const App: React.FC = () => {
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-  
-  // History State
-  const [history, setHistory] = useState<SubtitleEntry[][]>([]);
-  const [historyPointer, setHistoryPointer] = useState(-1);
+
+  const { history, historyPointer, pushToHistory, undo: undoHistory, redo: redoHistory, resetHistory } = useSubtitleHistory([]);
 
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
   const [customLanguage, setCustomLanguage] = useState('');
   const [preserveSlang, setPreserveSlang] = useState(true);
 
-  // Helper to save history
-  const pushToHistory = useCallback((newState: SubtitleEntry[]) => {
-    setHistory(prev => {
-      const newHistory = prev.slice(0, historyPointer + 1);
-      newHistory.push(JSON.parse(JSON.stringify(newState)));
-      if (newHistory.length > MAX_HISTORY) newHistory.shift();
-      return newHistory;
-    });
-    setHistoryPointer(prev => Math.min(prev + 1, MAX_HISTORY - 1));
-  }, [historyPointer]);
+  const performUndo = useCallback(() => {
+    const prev = undoHistory(subtitles);
+    if (prev) setSubtitles(prev);
+  }, [undoHistory, subtitles]);
 
-  const undo = useCallback(() => {
-    if (historyPointer > 0) {
-      const prevPointer = historyPointer - 1;
-      setSubtitles(JSON.parse(JSON.stringify(history[prevPointer])));
-      setHistoryPointer(prevPointer);
-    }
-  }, [history, historyPointer]);
-
-  const redo = useCallback(() => {
-    if (historyPointer < history.length - 1) {
-      const nextPointer = historyPointer + 1;
-      setSubtitles(JSON.parse(JSON.stringify(history[nextPointer])));
-      setHistoryPointer(nextPointer);
-    }
-  }, [history, historyPointer]);
+  const performRedo = useCallback(() => {
+    const next = redoHistory();
+    if (next) setSubtitles(next);
+  }, [redoHistory]);
 
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         if (e.shiftKey) {
-          redo();
+          performRedo();
         } else {
-          undo();
+          performUndo();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
+  }, [performUndo, performRedo]);
 
   const availableLanguages = useMemo(() => {
     const defaultNames = DEFAULT_LANGUAGES.map(l => l.name);
@@ -97,7 +76,8 @@ const App: React.FC = () => {
       setFile(uploadedFile);
       const url = URL.createObjectURL(uploadedFile);
       setAudioUrl(url);
-      
+
+      // Reset state using native Audio for duration check
       const audio = new Audio(url);
       audio.onloadedmetadata = () => {
         setDuration(audio.duration);
@@ -105,8 +85,7 @@ const App: React.FC = () => {
       };
       setSubtitles([]);
       setSelectedIndices([]);
-      setHistory([]);
-      setHistoryPointer(-1);
+      resetHistory();
       setError(null);
     }
   };
@@ -135,6 +114,7 @@ const App: React.FC = () => {
             setError("Model returned no subtitles. Try a segment with clearer speech.");
           }
         } catch (inner) {
+          console.error(inner);
           setError("Transcription service failed.");
         } finally {
           setIsProcessing(false);
@@ -147,7 +127,7 @@ const App: React.FC = () => {
   };
 
   const toggleLanguage = (lang: string) => {
-    setSelectedLanguages(prev => 
+    setSelectedLanguages(prev =>
       prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
     );
   };
@@ -213,87 +193,79 @@ const App: React.FC = () => {
     }
   };
 
-  const validateTimeFormat = (time: string) => TIME_REGEX.test(time);
+  const handleSubtitleChange = useCallback((index: number, field: keyof SubtitleEntry, value: string | number) => {
+    setSubtitles(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
 
-  const timeToSeconds = (time: string) => {
-    const match = time.match(TIME_REGEX);
-    if (!match) return 0;
-    const mins = parseInt(match[1]);
-    const secs = parseInt(match[2]);
-    const ms = parseInt(match[3]);
-    return mins * 60 + secs + ms / 1000;
-  };
-
-  const handleSubtitleChange = (index: number, field: keyof SubtitleEntry, value: string | number) => {
-    const updated = [...subtitles];
-    updated[index] = { ...updated[index], [field]: value };
-
-    // Automatic Cascading Adjustments
-    if (typeof value === 'string' && validateTimeFormat(value)) {
-      if (field === 'endTime' && index < updated.length - 1) {
-        updated[index + 1] = { ...updated[index + 1], startTime: value };
-      } else if (field === 'startTime' && index > 0) {
-        updated[index - 1] = { ...updated[index - 1], endTime: value };
+      // Automatic Cascading Adjustments
+      if (typeof value === 'string' && validateTimeFormat(value)) {
+        if (field === 'endTime' && index < updated.length - 1) {
+          updated[index + 1] = { ...updated[index + 1], startTime: value };
+        } else if (field === 'startTime' && index > 0) {
+          updated[index - 1] = { ...updated[index - 1], endTime: value };
+        }
       }
-    }
+      return updated;
+    });
+  }, []);
 
-    setSubtitles(updated);
-  };
-
-  const saveToHistoryAfterEdit = () => {
+  const saveToHistoryAfterEdit = useCallback(() => {
     // Only push if different from top of stack
     if (historyPointer >= 0 && JSON.stringify(subtitles) !== JSON.stringify(history[historyPointer])) {
       pushToHistory(subtitles);
     }
-  };
+  }, [historyPointer, history, subtitles, pushToHistory]);
 
-  const handleDeleteSubtitle = (indexToDelete: number) => {
-    const updated = subtitles
+  const handleDeleteSubtitle = useCallback((indexToDelete: number) => {
+    setSubtitles(prev => {
+      const updated = prev
         .filter((_, idx) => idx !== indexToDelete)
         .map((sub, idx) => ({ ...sub, index: idx + 1 }));
-    setSubtitles(updated);
-    pushToHistory(updated);
+      pushToHistory(updated);
+      return updated;
+    });
     setSelectedIndices(prev => prev.filter(i => i !== indexToDelete).map(i => i > indexToDelete ? i - 1 : i));
-  };
+  }, [pushToHistory]);
 
-  const handleToggleSelect = (index: number) => {
-    setSelectedIndices(prev => 
+  const handleToggleSelect = useCallback((index: number) => {
+    setSelectedIndices(prev =>
       prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort((a, b) => a - b)
     );
-  };
+  }, []);
 
   const handleMergeSelected = () => {
     if (!isSelectionConsecutive) return;
-    
+
     const sorted = [...selectedIndices].sort((a, b) => a - b);
     const firstIdx = sorted[0];
     const lastIdx = sorted[sorted.length - 1];
-    
+
     const mergedText = sorted.map(i => subtitles[i].text).join(' ');
     const startTime = subtitles[firstIdx].startTime;
     const endTime = subtitles[lastIdx].endTime;
-    
+
     const newSubtitles: SubtitleEntry[] = [];
-    
+
     for (let i = 0; i < firstIdx; i++) {
       newSubtitles.push(subtitles[i]);
     }
-    
+
     newSubtitles.push({
       index: firstIdx + 1,
       startTime,
       endTime,
       text: mergedText
     });
-    
+
     for (let i = 0; i < subtitles.length; i++) {
       if (i > lastIdx) {
         newSubtitles.push(subtitles[i]);
       }
     }
-    
+
     const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
-    
+
     setSubtitles(reindexed);
     pushToHistory(reindexed);
     setSelectedIndices([]);
@@ -304,8 +276,7 @@ const App: React.FC = () => {
     setAudioUrl(null);
     setSubtitles([]);
     setSelectedIndices([]);
-    setHistory([]);
-    setHistoryPointer(-1);
+    resetHistory();
     setDuration(0);
     setRange([0, 0]);
     setError(null);
@@ -329,7 +300,7 @@ const App: React.FC = () => {
               <label htmlFor="audio-upload" className="cursor-pointer">
                 <Upload className="mx-auto mb-3 text-slate-300 group-hover:text-indigo-400 transition-colors" size={40} />
                 <span className="block text-base font-semibold text-slate-700">Upload Audio</span>
-                <span className="text-[11px] text-slate-400 font-medium">Click or drop files</span>
+                <span className="text-xs text-slate-400 font-medium">Click or drop files</span>
               </label>
             </div>
           ) : (
@@ -337,7 +308,7 @@ const App: React.FC = () => {
               <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg shrink-0"><Music size={14} /></div>
-                  <span className="font-semibold text-slate-700 truncate text-[11px]">{file.name}</span>
+                  <span className="font-semibold text-slate-700 truncate text-[14px]">{file.name}</span>
                 </div>
                 <button onClick={removeFile} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Remove file"><Trash2 size={16} /></button>
               </div>
@@ -348,19 +319,18 @@ const App: React.FC = () => {
                 <div className="flex items-center justify-between gap-2 text-slate-800 font-bold mb-1">
                   <div className="flex items-center gap-1.5">
                     <Globe size={16} className={`text-indigo-600 ${preserveSlang ? 'animate-pulse' : ''}`} />
-                    <h2 className="text-xs uppercase tracking-wider">Target</h2>
+                    <h2 className="text-[13px] uppercase tracking-wider">Translate to</h2>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setPreserveSlang(!preserveSlang)}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] uppercase tracking-wider transition-all border ${
-                      preserveSlang 
-                        ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold shadow-sm' 
-                        : 'bg-slate-50 border-slate-100 text-slate-400'
-                    }`}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] uppercase tracking-wider transition-all border ${preserveSlang
+                      ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold shadow-sm'
+                      : 'bg-slate-50 border-slate-100 text-slate-400'
+                      }`}
                     title="Translate with slang preservation"
                   >
                     <Zap size={8} className={preserveSlang ? 'fill-amber-500' : ''} />
-                    Slang
+                    Slang mode
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -368,11 +338,10 @@ const App: React.FC = () => {
                     <button
                       key={lang}
                       onClick={() => toggleLanguage(lang)}
-                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
-                        selectedLanguages.includes(lang)
-                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100'
-                          : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all border ${selectedLanguages.includes(lang)
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                        }`}
                     >
                       {lang}
                     </button>
@@ -385,7 +354,7 @@ const App: React.FC = () => {
                     value={customLanguage}
                     onChange={e => setCustomLanguage(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addCustomLanguage()}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px] focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   />
                   <button onClick={addCustomLanguage} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
                     <Plus size={14} />
@@ -396,12 +365,12 @@ const App: React.FC = () => {
               <button
                 onClick={handleTranscribe}
                 disabled={isProcessing}
-                className="w-full bg-indigo-600 text-white py-3 px-5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50 transition-all shadow-lg shadow-indigo-100"
+                className="w-full bg-indigo-600 text-white py-3 px-5 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50 transition-all shadow-lg shadow-indigo-100"
               >
                 {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
                 {subtitles.length > 0 ? "Regenerate" : "Transcribe"}
               </button>
-              
+
               {error && (
                 <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-[10px] font-medium">
                   <AlertCircle size={12} className="shrink-0" />
@@ -421,11 +390,11 @@ const App: React.FC = () => {
                   {selectedIndices.length > 0 ? `${selectedIndices.length} Selected` : 'Smart Timing Mode'}
                 </span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1 mr-2">
                   <button
-                    onClick={undo}
+                    onClick={performUndo}
                     disabled={historyPointer <= 0}
                     className="p-1.5 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     title="Undo (Ctrl+Z)"
@@ -433,7 +402,7 @@ const App: React.FC = () => {
                     <Undo2 size={14} />
                   </button>
                   <button
-                    onClick={redo}
+                    onClick={performRedo}
                     disabled={historyPointer >= history.length - 1}
                     className="p-1.5 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                     title="Redo (Ctrl+Shift+Z)"
@@ -446,33 +415,32 @@ const App: React.FC = () => {
                   <button
                     onClick={handleMergeSelected}
                     disabled={!isSelectionConsecutive}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-[11px] transition-all shadow-md animate-in zoom-in-95 ${
-                      isSelectionConsecutive 
-                        ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100' 
-                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    }`}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-[11px] transition-all shadow-md animate-in zoom-in-95 ${isSelectionConsecutive
+                      ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100'
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      }`}
                     title={!isSelectionConsecutive ? "Only consecutive segments can be merged" : "Merge selected segments"}
                   >
                     <Layers size={14} />
                     Merge Selected
                   </button>
                 )}
-                
+
                 {subtitles.length > 0 && (
                   <>
                     <button
                       onClick={downloadOriginal}
                       disabled={isProcessing}
-                      className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-[11px] hover:bg-slate-50 transition-all"
+                      className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-[13px] hover:bg-slate-50 transition-all"
                     >
                       <Save size={14} className="text-slate-400" />
                       Save SRT
                     </button>
-                    
+
                     <button
                       onClick={translateAndDownloadAll}
                       disabled={isProcessing || selectedLanguages.length === 0}
-                      className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-[11px] hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-100"
+                      className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-[13px] hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-100"
                     >
                       {isProcessing ? <Loader2 className="animate-spin" size={14} /> : <Download size={14} />}
                       Export Translated
@@ -486,155 +454,45 @@ const App: React.FC = () => {
               {subtitles.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4 animate-in fade-in duration-500">
                   <div className="p-6 bg-white rounded-full shadow-inner"><FileText size={48} className="opacity-10" /></div>
-                  <p className="font-semibold text-slate-400 italic text-xs">Waiting for transcription results...</p>
+                  <p className="font-semibold text-slate-400 italic text-[14px]">Waiting for transcription results...</p>
                 </div>
               ) : (
-                subtitles.map((sub, idx) => {
-                  const isStartInvalid = !validateTimeFormat(sub.startTime);
-                  const isEndInvalid = !validateTimeFormat(sub.endTime);
-                  const isLogicInvalid = validateTimeFormat(sub.startTime) && validateTimeFormat(sub.endTime) && timeToSeconds(sub.startTime) >= timeToSeconds(sub.endTime);
-                  const isSelected = selectedIndices.includes(idx);
-                  const isFocused = focusedIndex === idx;
-                  const isNeighborSelected = idx > 0 && selectedIndices.includes(idx - 1) && isSelected;
-
-                  return (
-                    <div key={idx} className="relative group">
-                      {/* Connector Line for consecutive selection */}
-                      {isNeighborSelected && (
-                        <div className="absolute -top-3 left-7 w-0.5 h-3 bg-indigo-300 z-0 opacity-50" />
-                      )}
-                      
-                      <div 
-                        className={`relative p-3.5 rounded-2xl border transition-all duration-300 flex gap-3 z-10 ${
-                          isSelected 
-                            ? 'bg-indigo-50/60 border-2 border-dashed border-indigo-400 shadow-sm' 
-                            : isFocused 
-                              ? 'bg-indigo-50/30 border-indigo-500 shadow-lg shadow-indigo-100/50 ring-4 ring-indigo-50 scale-[1.005]' 
-                              : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-md'
-                        }`}
-                      >
-                        {/* Left focus indicator bar */}
-                        <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full transition-all duration-300 ${
-                          isFocused ? 'bg-indigo-500 scale-y-100' : 'bg-transparent scale-y-0'
-                        }`} />
-
-                        <div className="flex flex-col items-center pt-1.5">
-                          <input 
-                            type="checkbox" 
-                            checked={isSelected}
-                            onChange={() => handleToggleSelect(idx)}
-                            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer bg-white appearance-none border checked:bg-indigo-600 checked:border-indigo-600 relative after:content-[''] after:hidden checked:after:block after:absolute after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-white after:border-b-2 after:border-r-2 after:rotate-45 transition-all"
-                          />
-                        </div>
-
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2.5">
-                            <div className="flex items-center gap-3">
-                              {/* Index badge now stays stable/neutral as requested */}
-                              <span className="text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition-all duration-300">
-                                {sub.index}
-                              </span>
-                              
-                              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all border ${
-                                isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
-                                isFocused ? 'bg-white border-indigo-200 shadow-sm' :
-                                isSelected ? 'bg-white border-indigo-300' : 'bg-slate-50 border-slate-100'
-                              }`}>
-                                <Clock size={12} className={isLogicInvalid ? 'text-red-400' : isFocused ? 'text-indigo-500' : isSelected ? 'text-indigo-600' : 'text-slate-300'} />
-                                <input
-                                  type="text"
-                                  value={sub.startTime}
-                                  onBlur={saveToHistoryAfterEdit}
-                                  onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
-                                  onFocus={() => setFocusedIndex(idx)}
-                                  className={`text-[12px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
-                                    isStartInvalid ? 'text-red-500 underline decoration-dotted' : isFocused || isSelected ? 'text-indigo-900' : 'text-slate-600'
-                                  }`}
-                                  placeholder="00:00.000"
-                                />
-                                <span className="text-slate-300 text-[11px]">—</span>
-                                <input
-                                  type="text"
-                                  value={sub.endTime}
-                                  onBlur={saveToHistoryAfterEdit}
-                                  onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
-                                  onFocus={() => setFocusedIndex(idx)}
-                                  className={`text-[12px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${
-                                    isEndInvalid ? 'text-red-500 underline decoration-dotted' : isFocused || isSelected ? 'text-indigo-900' : 'text-slate-600'
-                                  }`}
-                                  placeholder="00:00.000"
-                                />
-                              </div>
-
-                              {isLogicInvalid && (
-                                <span className="text-[9px] font-bold text-red-500 uppercase flex items-center gap-1 animate-in fade-in zoom-in">
-                                  <AlertCircle size={10} />
-                                  Invalid range
-                                </span>
-                              )}
-                              
-                              {isSelected && !isFocused && (
-                                <span className="text-[9px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">Selected</span>
-                              )}
-                            </div>
-
-                            <button
-                              onClick={() => handleDeleteSubtitle(idx)}
-                              className={`p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all ${
-                                isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                              }`}
-                              title="Delete segment"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                          
-                          <textarea
-                            value={sub.text}
-                            onBlur={saveToHistoryAfterEdit}
-                            onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
-                            onFocus={() => setFocusedIndex(idx)}
-                            className={`w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-relaxed placeholder-slate-200 text-[14px] transition-all duration-300 ${
-                              isSelected ? 'italic text-indigo-900/80 font-semibold' : isFocused ? 'text-slate-900 font-semibold' : ''
-                            }`}
-                            rows={1}
-                            style={{ minHeight: '1.5em' }}
-                            placeholder="Type subtitle here..."
-                          />
-                        </div>
-                        
-                        {isFocused && (
-                          <div className="absolute right-3 bottom-3 flex gap-1 animate-in fade-in duration-300">
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce"></div>
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-100"></div>
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-200"></div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
+                subtitles.map((sub, idx) => (
+                  <SubtitleRow
+                    key={idx}
+                    sub={sub}
+                    rowIndex={idx}
+                    isSelected={selectedIndices.includes(idx)}
+                    isFocused={focusedIndex === idx}
+                    isNeighborSelected={idx > 0 && selectedIndices.includes(idx - 1) && selectedIndices.includes(idx)}
+                    onSelect={handleToggleSelect}
+                    onChange={handleSubtitleChange}
+                    onDelete={handleDeleteSubtitle}
+                    onFocus={setFocusedIndex}
+                    onBlur={saveToHistoryAfterEdit}
+                  />
+                ))
               )}
             </div>
-            
+
             <div className="py-2.5 px-6 bg-white border-t border-slate-100 flex items-center justify-between">
-               <div className="flex items-center gap-2">
-                 <div className="h-1 w-12 bg-slate-100 rounded-full overflow-hidden">
-                   <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: subtitles.length > 0 ? '100%' : '0%' }} />
-                 </div>
-                 <span className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">Editor Active</span>
-               </div>
-               {subtitles.length > 0 && (
-                 <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                   <span className={`w-1.5 h-1.5 rounded-full ${isProcessing ? 'bg-amber-400 animate-pulse' : 'bg-green-400 animate-ping'}`} />
-                   {subtitles.length} SEGMENTS SYNCED
-                 </div>
-               )}
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-12 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: subtitles.length > 0 ? '100%' : '0%' }} />
+                </div>
+                <span className="text-[9px] text-slate-300 font-bold uppercase tracking-wider">Editor Active</span>
+              </div>
+              {subtitles.length > 0 && (
+                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isProcessing ? 'bg-amber-400 animate-pulse' : 'bg-green-400 animate-ping'}`} />
+                  {subtitles.length} SEGMENTS SYNCED
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-      
+
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
