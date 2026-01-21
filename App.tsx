@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Clock, Zap, X, Layers } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Upload, FileText, Download, Play, Loader2, Music, Trash2, Globe, Plus, Save, AlertCircle, Clock, Zap, X, Layers, Undo2, Redo2 } from 'lucide-react';
 import AudioPlayer from './components/AudioPlayer';
 import { transcribeAudio, translateSubtitles } from './services/geminiService';
 import { SubtitleEntry } from './types';
@@ -13,6 +13,7 @@ const DEFAULT_LANGUAGES = [
 ];
 
 const TIME_REGEX = /^(\d+):([0-5]\d)\.(\d{3})$/;
+const MAX_HISTORY = 50;
 
 const App: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -25,9 +26,55 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   
+  // History State
+  const [history, setHistory] = useState<SubtitleEntry[][]>([]);
+  const [historyPointer, setHistoryPointer] = useState(-1);
+
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
   const [customLanguage, setCustomLanguage] = useState('');
   const [preserveSlang, setPreserveSlang] = useState(true);
+
+  // Helper to save history
+  const pushToHistory = useCallback((newState: SubtitleEntry[]) => {
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyPointer + 1);
+      newHistory.push(JSON.parse(JSON.stringify(newState)));
+      if (newHistory.length > MAX_HISTORY) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryPointer(prev => Math.min(prev + 1, MAX_HISTORY - 1));
+  }, [historyPointer]);
+
+  const undo = useCallback(() => {
+    if (historyPointer > 0) {
+      const prevPointer = historyPointer - 1;
+      setSubtitles(JSON.parse(JSON.stringify(history[prevPointer])));
+      setHistoryPointer(prevPointer);
+    }
+  }, [history, historyPointer]);
+
+  const redo = useCallback(() => {
+    if (historyPointer < history.length - 1) {
+      const nextPointer = historyPointer + 1;
+      setSubtitles(JSON.parse(JSON.stringify(history[nextPointer])));
+      setHistoryPointer(nextPointer);
+    }
+  }, [history, historyPointer]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   const availableLanguages = useMemo(() => {
     const defaultNames = DEFAULT_LANGUAGES.map(l => l.name);
@@ -58,6 +105,8 @@ const App: React.FC = () => {
       };
       setSubtitles([]);
       setSelectedIndices([]);
+      setHistory([]);
+      setHistoryPointer(-1);
       setError(null);
     }
   };
@@ -81,6 +130,7 @@ const App: React.FC = () => {
           );
           if (result.subtitles && result.subtitles.length > 0) {
             setSubtitles(result.subtitles);
+            pushToHistory(result.subtitles);
           } else {
             setError("Model returned no subtitles. Try a segment with clearer speech.");
           }
@@ -190,12 +240,19 @@ const App: React.FC = () => {
     setSubtitles(updated);
   };
 
+  const saveToHistoryAfterEdit = () => {
+    // Only push if different from top of stack
+    if (historyPointer >= 0 && JSON.stringify(subtitles) !== JSON.stringify(history[historyPointer])) {
+      pushToHistory(subtitles);
+    }
+  };
+
   const handleDeleteSubtitle = (indexToDelete: number) => {
-    setSubtitles(prev => 
-      prev
+    const updated = subtitles
         .filter((_, idx) => idx !== indexToDelete)
-        .map((sub, idx) => ({ ...sub, index: idx + 1 }))
-    );
+        .map((sub, idx) => ({ ...sub, index: idx + 1 }));
+    setSubtitles(updated);
+    pushToHistory(updated);
     setSelectedIndices(prev => prev.filter(i => i !== indexToDelete).map(i => i > indexToDelete ? i - 1 : i));
   };
 
@@ -238,6 +295,7 @@ const App: React.FC = () => {
     const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
     
     setSubtitles(reindexed);
+    pushToHistory(reindexed);
     setSelectedIndices([]);
   };
 
@@ -246,6 +304,8 @@ const App: React.FC = () => {
     setAudioUrl(null);
     setSubtitles([]);
     setSelectedIndices([]);
+    setHistory([]);
+    setHistoryPointer(-1);
     setDuration(0);
     setRange([0, 0]);
     setError(null);
@@ -363,6 +423,26 @@ const App: React.FC = () => {
               </div>
               
               <div className="flex items-center gap-2">
+                {/* Undo/Redo Controls */}
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1 mr-2">
+                  <button
+                    onClick={undo}
+                    disabled={historyPointer <= 0}
+                    className="p-1.5 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo2 size={14} />
+                  </button>
+                  <button
+                    onClick={redo}
+                    disabled={historyPointer >= history.length - 1}
+                    className="p-1.5 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    title="Redo (Ctrl+Shift+Z)"
+                  >
+                    <Redo2 size={14} />
+                  </button>
+                </div>
+
                 {selectedIndices.length >= 2 && (
                   <button
                     onClick={handleMergeSelected}
@@ -454,6 +534,7 @@ const App: React.FC = () => {
                               <input
                                 type="text"
                                 value={sub.startTime}
+                                onBlur={saveToHistoryAfterEdit}
                                 onChange={(e) => handleSubtitleChange(idx, 'startTime', e.target.value)}
                                 onFocus={() => setFocusedIndex(idx)}
                                 className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
@@ -465,6 +546,7 @@ const App: React.FC = () => {
                               <input
                                 type="text"
                                 value={sub.endTime}
+                                onBlur={saveToHistoryAfterEdit}
                                 onChange={(e) => handleSubtitleChange(idx, 'endTime', e.target.value)}
                                 onFocus={() => setFocusedIndex(idx)}
                                 className={`text-[10px] font-bold font-mono bg-transparent border-none focus:ring-0 w-16 text-center p-0 ${
@@ -493,9 +575,9 @@ const App: React.FC = () => {
                         
                         <textarea
                           value={sub.text}
+                          onBlur={saveToHistoryAfterEdit}
                           onChange={(e) => handleSubtitleChange(idx, 'text', e.target.value)}
                           onFocus={() => setFocusedIndex(idx)}
-                          onBlur={() => setFocusedIndex(null)}
                           className={`w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-normal placeholder-slate-200 text-[13px] transition-colors ${
                             isSelected ? 'italic text-indigo-900/70' : ''
                           }`}
