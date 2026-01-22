@@ -28,7 +28,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRange
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
       <audio controls src={src} className="w-full mb-6" />
-      
+
       <div className="space-y-4">
         <div className="flex justify-between items-center text-sm font-medium text-slate-600">
           <span>Range: {formatTime(range[0])} - {formatTime(range[1])}</span>
@@ -36,31 +36,42 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRange
         </div>
 
         <div className="relative h-12 flex items-center">
+          {/* Track background */}
+          <div className="absolute w-full h-2 bg-slate-200 rounded-lg" />
+
+          {/* Selected range highlight */}
+          <div
+            className="absolute h-2 bg-indigo-500 rounded-lg"
+            style={{
+              left: `${(range[0] / duration) * 100}%`,
+              width: `${((range[1] - range[0]) / duration) * 100}%`,
+              opacity: 0.6
+            }}
+          />
+
+          {/* Start slider (left bound) */}
           <input
             type="range"
             min="0"
             max={duration}
             value={range[0]}
             onChange={handleStartChange}
-            className="absolute w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 z-10"
+            className="range-slider absolute w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer z-20"
+            style={{ pointerEvents: 'none' }}
           />
+
+          {/* End slider (right bound) */}
           <input
             type="range"
             min="0"
             max={duration}
             value={range[1]}
             onChange={handleEndChange}
-            className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer accent-indigo-400 z-20 pointer-events-auto"
-          />
-          <div 
-            className="absolute h-2 bg-indigo-500 opacity-30 rounded-lg"
-            style={{
-              left: `${(range[0] / duration) * 100}%`,
-              width: `${((range[1] - range[0]) / duration) * 100}%`
-            }}
+            className="range-slider absolute w-full h-2 bg-transparent appearance-none cursor-pointer z-20"
+            style={{ pointerEvents: 'none' }}
           />
         </div>
-        
+
         <div className="flex justify-between text-xs text-slate-400">
           <span>0:00</span>
           <span>{formatTime(duration)}</span>
