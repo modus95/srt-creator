@@ -6,6 +6,8 @@ import { useSubtitleHistory } from './hooks/useSubtitleHistory';
 import { transcribeAudio, translateSubtitles } from './services/geminiService';
 import { SubtitleEntry } from './types';
 import { convertToSRT, formatSecondsToMMSS, validateTimeFormat, timeToSeconds } from './utils/srtParser';
+import { FAVICON_BASE64 } from './public/logo_base64';
+
 
 const DEFAULT_LANGUAGES = [
   { name: 'English', code: 'en' },
@@ -354,8 +356,9 @@ const App: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <header className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center p-2.5 bg-indigo-100 text-indigo-600 rounded-2xl mb-3 shadow-sm">
-          <FileText size={28} />
+        <div className="inline-flex items-center justify-center mb-4">
+          <img src={FAVICON_BASE64} alt="SRT Creator Pro Logo" className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-cover" />
+          {/* <img src="/favicon.png" alt="SRT Creator Pro Logo" className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-cover" /> */}
         </div>
         <h1 className="text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">SRT Creator Pro</h1>
         <p className="text-slate-500 text-sm">AI transcription & multi-language subtitles</p>
