@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AudioPlayerProps {
   src: string;
@@ -9,6 +9,30 @@ interface AudioPlayerProps {
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRangeChange }) => {
+  const [startInput, setStartInput] = useState('');
+  const [endInput, setEndInput] = useState('');
+
+  const formatTime = (s: number) => {
+    const min = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${min}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const parseTime = (timeStr: string): number | null => {
+    const match = timeStr.trim().match(/^(\d+):(\d{1,2})$/);
+    if (!match) return null;
+    const min = parseInt(match[1], 10);
+    const sec = parseInt(match[2], 10);
+    if (sec >= 60) return null;
+    return min * 60 + sec;
+  };
+
+  // Sync input fields when range changes externally
+  useEffect(() => {
+    setStartInput(formatTime(range[0]));
+    setEndInput(formatTime(range[1]));
+  }, [range]);
+
   const handleStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     onRangeChange([Math.min(val, range[1] - 1), range[1]]);
@@ -19,10 +43,34 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRange
     onRangeChange([range[0], Math.max(val, range[0] + 1)]);
   };
 
-  const formatTime = (s: number) => {
-    const min = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${min}:${sec.toString().padStart(2, '0')}`;
+  const handleStartInputBlur = () => {
+    const parsed = parseTime(startInput);
+    if (parsed !== null && parsed >= 0 && parsed < range[1] && parsed <= duration) {
+      onRangeChange([parsed, range[1]]);
+    } else {
+      setStartInput(formatTime(range[0]));
+    }
+  };
+
+  const handleEndInputBlur = () => {
+    const parsed = parseTime(endInput);
+    if (parsed !== null && parsed > range[0] && parsed <= duration) {
+      onRangeChange([range[0], parsed]);
+    } else {
+      setEndInput(formatTime(range[1]));
+    }
+  };
+
+  const handleStartInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  const handleEndInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
   };
 
   return (
@@ -31,7 +79,28 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRange
 
       <div className="space-y-4">
         <div className="flex justify-between items-center text-sm font-medium text-slate-600">
-          <span>Range: {formatTime(range[0])} - {formatTime(range[1])}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">Range:</span>
+            <input
+              type="text"
+              value={startInput}
+              onChange={(e) => setStartInput(e.target.value)}
+              onBlur={handleStartInputBlur}
+              onKeyDown={handleStartInputKeyDown}
+              className="w-14 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg text-[13px] font-mono focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all"
+              title="Start time (MM:SS)"
+            />
+            <span className="text-slate-300">–</span>
+            <input
+              type="text"
+              value={endInput}
+              onChange={(e) => setEndInput(e.target.value)}
+              onBlur={handleEndInputBlur}
+              onKeyDown={handleEndInputKeyDown}
+              className="w-14 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg text-[13px] font-mono focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all"
+              title="End time (MM:SS)"
+            />
+          </div>
           <span>Total Duration: {formatTime(duration)}</span>
         </div>
 
