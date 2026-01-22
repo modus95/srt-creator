@@ -9,7 +9,7 @@ interface SubtitleRowProps {
     isSelected: boolean;
     isFocused: boolean;
     isNeighborSelected: boolean;
-    onSelect: (index: number) => void;
+    onSelect: (index: number, shiftKey: boolean) => void;
     onChange: (index: number, field: keyof SubtitleEntry, value: string) => void;
     onDelete: (index: number) => void;
     onFocus: (index: number) => void;
@@ -63,7 +63,11 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
                     <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => onSelect(rowIndex)}
+                        onChange={(e) => {
+                            // Use the native event to access shiftKey
+                            const shiftKey = (e.nativeEvent as MouseEvent).shiftKey ?? false;
+                            onSelect(rowIndex, shiftKey);
+                        }}
                         className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer bg-white appearance-none border checked:bg-indigo-600 checked:border-indigo-600 relative after:content-[''] after:hidden checked:after:block after:absolute after:left-[4px] after:top-[1px] after:w-[6px] after:h-[10px] after:border-white after:border-b-2 after:border-r-2 after:rotate-45 transition-all"
                     />
                 </div>

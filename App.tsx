@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [subtitles, setSubtitles] = useState<SubtitleEntry[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
@@ -283,11 +284,24 @@ const App: React.FC = () => {
     setSelectedIndices(prev => prev.map(i => i > indexToSplit ? i + 1 : i));
   }, [pushToHistory]);
 
-  const handleToggleSelect = useCallback((index: number) => {
-    setSelectedIndices(prev =>
-      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort((a, b) => a - b)
-    );
-  }, []);
+  const handleToggleSelect = useCallback((index: number, shiftKey: boolean = false) => {
+    if (shiftKey && lastSelectedIndex !== null && lastSelectedIndex !== index) {
+      // Shift+click: select range from lastSelectedIndex to current index
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const rangeIndices: number[] = [];
+      for (let i = start; i <= end; i++) {
+        rangeIndices.push(i);
+      }
+      setSelectedIndices(rangeIndices);
+    } else {
+      // Normal click: toggle single selection
+      setSelectedIndices(prev =>
+        prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort((a, b) => a - b)
+      );
+      setLastSelectedIndex(index);
+    }
+  }, [lastSelectedIndex]);
 
   const handleMergeSelected = () => {
     if (!isSelectionConsecutive) return;
