@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { Clock, AlertCircle, X } from 'lucide-react';
+import React, { memo, useRef } from 'react';
+import { Clock, AlertCircle, X, Scissors } from 'lucide-react';
 import { SubtitleEntry } from '../../types';
 import { validateTimeFormat, timeToSeconds } from '../../utils/srtParser';
 
@@ -14,6 +14,7 @@ interface SubtitleRowProps {
     onDelete: (index: number) => void;
     onFocus: (index: number) => void;
     onBlur: () => void;
+    onSplit: (index: number, cursorPosition: number) => void;
 }
 
 const SubtitleRow: React.FC<SubtitleRowProps> = ({
@@ -26,8 +27,10 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
     onChange,
     onDelete,
     onFocus,
-    onBlur
+    onBlur,
+    onSplit
 }) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const isStartInvalid = !validateTimeFormat(sub.startTime);
     const isEndInvalid = !validateTimeFormat(sub.endTime);
     const isLogicInvalid =
@@ -44,10 +47,10 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
 
             <div
                 className={`relative p-3.5 rounded-2xl border transition-all duration-300 flex gap-3 z-10 ${isSelected
-                        ? 'bg-indigo-50/60 border-2 border-dashed border-indigo-400 shadow-sm'
-                        : isFocused
-                            ? 'bg-indigo-50/30 border-indigo-500 shadow-lg shadow-indigo-100/50 ring-4 ring-indigo-50 scale-[1.005]'
-                            : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-md'
+                    ? 'bg-indigo-50/60 border-2 border-dashed border-indigo-400 shadow-sm'
+                    : isFocused
+                        ? 'bg-indigo-50/30 border-indigo-500 shadow-lg shadow-indigo-100/50 ring-4 ring-indigo-50 scale-[1.005]'
+                        : 'bg-white border-slate-100 hover:border-slate-300 hover:shadow-md'
                     }`}
             >
                 {/* Left focus indicator bar */}
@@ -73,8 +76,8 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
                             </span>
 
                             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all border ${isLogicInvalid ? 'bg-red-50 border-red-200 animate-pulse' :
-                                    isFocused ? 'bg-white border-indigo-200 shadow-sm' :
-                                        isSelected ? 'bg-white border-indigo-300' : 'bg-slate-50 border-slate-100'
+                                isFocused ? 'bg-white border-indigo-200 shadow-sm' :
+                                    isSelected ? 'bg-white border-indigo-300' : 'bg-slate-50 border-slate-100'
                                 }`}>
                                 <Clock size={12} className={isLogicInvalid ? 'text-red-400' : isFocused ? 'text-indigo-500' : isSelected ? 'text-indigo-600' : 'text-slate-300'} />
                                 <input
@@ -112,21 +115,47 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
                             )}
                         </div>
 
-                        <button
-                            onClick={() => onDelete(rowIndex)}
-                            className={`p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all ${isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                                }`}
-                            title="Delete segment"
-                        >
-                            <X size={16} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => {
+                                    const cursorPos = textareaRef.current?.selectionStart ?? 0;
+                                    if (cursorPos > 0 && cursorPos < sub.text.length) {
+                                        onSplit(rowIndex, cursorPos);
+                                    }
+                                }}
+                                disabled={!isFocused}
+                                className={`p-1.5 rounded-lg text-slate-300 hover:text-amber-600 hover:bg-amber-50 transition-all ${isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                    } disabled:hover:text-slate-300 disabled:hover:bg-transparent`}
+                                title="Split segment at cursor (Ctrl+Enter)"
+                            >
+                                <Scissors size={16} />
+                            </button>
+                            <button
+                                onClick={() => onDelete(rowIndex)}
+                                className={`p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all ${isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                    }`}
+                                title="Delete segment"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
                     </div>
 
                     <textarea
+                        ref={textareaRef}
                         value={sub.text}
                         onBlur={onBlur}
                         onChange={(e) => onChange(rowIndex, 'text', e.target.value)}
                         onFocus={() => onFocus(rowIndex)}
+                        onKeyDown={(e) => {
+                            if (e.ctrlKey && e.key === 'Enter') {
+                                e.preventDefault();
+                                const cursorPos = textareaRef.current?.selectionStart ?? 0;
+                                if (cursorPos > 0 && cursorPos < sub.text.length) {
+                                    onSplit(rowIndex, cursorPos);
+                                }
+                            }
+                        }}
                         className={`w-full bg-transparent resize-none text-slate-700 focus:outline-none font-medium leading-relaxed placeholder-slate-200 text-[14px] transition-all duration-300 ${isSelected ? 'italic text-indigo-900/80 font-semibold' : isFocused ? 'text-slate-900 font-semibold' : ''
                             }`}
                         rows={1}

@@ -5,7 +5,7 @@ import SubtitleRow from './components/SubtitleEditor/SubtitleRow';
 import { useSubtitleHistory } from './hooks/useSubtitleHistory';
 import { transcribeAudio, translateSubtitles } from './services/geminiService';
 import { SubtitleEntry } from './types';
-import { convertToSRT, formatSecondsToMMSS, validateTimeFormat } from './utils/srtParser';
+import { convertToSRT, formatSecondsToMMSS, validateTimeFormat, timeToSeconds } from './utils/srtParser';
 
 const DEFAULT_LANGUAGES = [
   { name: 'English', code: 'en' },
@@ -226,6 +226,61 @@ const App: React.FC = () => {
       return updated;
     });
     setSelectedIndices(prev => prev.filter(i => i !== indexToDelete).map(i => i > indexToDelete ? i - 1 : i));
+  }, [pushToHistory]);
+
+  const handleSplitSegment = useCallback((indexToSplit: number, cursorPosition: number) => {
+    setSubtitles(prev => {
+      const segment = prev[indexToSplit];
+      if (!segment || cursorPosition <= 0 || cursorPosition >= segment.text.length) {
+        return prev;
+      }
+
+      // Split text at cursor position
+      const leftText = segment.text.slice(0, cursorPosition).trim();
+      const rightText = segment.text.slice(cursorPosition).trim();
+
+      // Calculate proportional time split based on text position
+      const startSeconds = timeToSeconds(segment.startTime);
+      const endSeconds = timeToSeconds(segment.endTime);
+      const totalDuration = endSeconds - startSeconds;
+
+      // Split time proportionally based on cursor position in text
+      const splitRatio = cursorPosition / segment.text.length;
+      const splitSeconds = startSeconds + (totalDuration * splitRatio);
+      const splitTime = formatSecondsToMMSS(splitSeconds);
+
+      // Create two new segments
+      const leftSegment: SubtitleEntry = {
+        index: segment.index,
+        startTime: segment.startTime,
+        endTime: splitTime,
+        text: leftText || '...'
+      };
+
+      const rightSegment: SubtitleEntry = {
+        index: segment.index + 1,
+        startTime: splitTime,
+        endTime: segment.endTime,
+        text: rightText || '...'
+      };
+
+      // Build new array
+      const newSubtitles: SubtitleEntry[] = [
+        ...prev.slice(0, indexToSplit),
+        leftSegment,
+        rightSegment,
+        ...prev.slice(indexToSplit + 1)
+      ];
+
+      // Reindex all segments
+      const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
+
+      pushToHistory(reindexed);
+      return reindexed;
+    });
+
+    // Adjust selected indices for the inserted segment
+    setSelectedIndices(prev => prev.map(i => i > indexToSplit ? i + 1 : i));
   }, [pushToHistory]);
 
   const handleToggleSelect = useCallback((index: number) => {
@@ -470,6 +525,7 @@ const App: React.FC = () => {
                     onDelete={handleDeleteSubtitle}
                     onFocus={setFocusedIndex}
                     onBlur={saveToHistoryAfterEdit}
+                    onSplit={handleSplitSegment}
                   />
                 ))
               )}
