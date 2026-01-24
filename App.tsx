@@ -31,7 +31,7 @@ const App: React.FC = () => {
 
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['English']);
   const [customLanguage, setCustomLanguage] = useState('');
-  const [preserveSlang, setPreserveSlang] = useState(true);
+  const [preserveSlang, setPreserveSlang] = useState(false);
 
   const performUndo = useCallback(() => {
     const prev = undoHistory(subtitles);

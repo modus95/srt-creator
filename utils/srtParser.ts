@@ -48,3 +48,30 @@ export const timeToSeconds = (time: string) => {
   const ms = parseInt(match[3]);
   return mins * 60 + secs + ms / 1000;
 };
+
+export const autoCompleteTime = (time: string): string => {
+  // If format is already valid, don't touch it
+  if (validateTimeFormat(time)) return time;
+
+  // Basic check for MM:SS structure
+  if (!time.includes(':')) return time;
+
+  const parts = time.split(':');
+  if (parts.length !== 2) return time;
+
+  const minutes = parts[0];
+  let secondsPart = parts[1];
+  let seconds = secondsPart;
+  let millis = '';
+
+  if (secondsPart.includes('.')) {
+    const [s, m] = secondsPart.split('.');
+    seconds = s;
+    millis = m || '';
+  }
+
+  // Ensure milliseconds are 3 digits
+  const completedMillis = millis.padEnd(3, '0');
+
+  return `${minutes}:${seconds}.${completedMillis}`;
+};

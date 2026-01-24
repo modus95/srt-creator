@@ -1,7 +1,7 @@
 import React, { memo, useRef } from 'react';
 import { Clock, AlertCircle, X, Scissors } from 'lucide-react';
 import { SubtitleEntry } from '../../types';
-import { validateTimeFormat, timeToSeconds } from '../../utils/srtParser';
+import { validateTimeFormat, timeToSeconds, autoCompleteTime } from '../../utils/srtParser';
 
 interface SubtitleRowProps {
     sub: SubtitleEntry;
@@ -37,6 +37,14 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
         validateTimeFormat(sub.startTime) &&
         validateTimeFormat(sub.endTime) &&
         timeToSeconds(sub.startTime) >= timeToSeconds(sub.endTime);
+
+    const handleTimeBlur = (field: 'startTime' | 'endTime', value: string) => {
+        const completed = autoCompleteTime(value);
+        if (completed !== value) {
+            onChange(rowIndex, field, completed);
+        }
+        onBlur();
+    };
 
     return (
         <div className="relative group">
@@ -87,9 +95,14 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
                                 <input
                                     type="text"
                                     value={sub.startTime}
-                                    onBlur={onBlur}
+                                    onBlur={() => handleTimeBlur('startTime', sub.startTime)}
                                     onChange={(e) => onChange(rowIndex, 'startTime', e.target.value)}
                                     onFocus={() => onFocus(rowIndex)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
                                     className={`text-[12px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${isStartInvalid ? 'text-red-500 underline decoration-dotted' : isFocused || isSelected ? 'text-indigo-900' : 'text-slate-600'
                                         }`}
                                     placeholder="00:00.000"
@@ -98,9 +111,14 @@ const SubtitleRow: React.FC<SubtitleRowProps> = ({
                                 <input
                                     type="text"
                                     value={sub.endTime}
-                                    onBlur={onBlur}
+                                    onBlur={() => handleTimeBlur('endTime', sub.endTime)}
                                     onChange={(e) => onChange(rowIndex, 'endTime', e.target.value)}
                                     onFocus={() => onFocus(rowIndex)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
                                     className={`text-[12px] font-bold font-mono bg-transparent border-none focus:ring-0 w-20 text-center p-0 ${isEndInvalid ? 'text-red-500 underline decoration-dotted' : isFocused || isSelected ? 'text-indigo-900' : 'text-slate-600'
                                         }`}
                                     placeholder="00:00.000"
