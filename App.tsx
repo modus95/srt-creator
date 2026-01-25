@@ -9,6 +9,7 @@ import { UploadSection } from './components/UploadSection';
 import { ControlPanel } from './components/ControlPanel';
 import { EditorToolbar } from './components/SubtitleEditor/EditorToolbar';
 import { SubtitleList } from './components/SubtitleEditor/SubtitleList';
+import { ThemeToggle } from './components/ThemeToggle';
 
 const DEFAULT_LANGUAGES = [
   { name: 'English', code: 'en' },
@@ -118,7 +119,8 @@ const App: React.FC = () => {
   }, [historyPointer, history, subtitles, pushToHistory]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8 min-h-screen transition-colors duration-300">
+      <ThemeToggle />
       <Header />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -152,7 +154,7 @@ const App: React.FC = () => {
 
         {/* Right Column: Editor */}
         <div className="lg:col-span-8">
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 flex flex-col h-[700px] overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col h-[700px] overflow-hidden transition-colors duration-300">
             <EditorToolbar
               historyPointer={historyPointer}
               historyLength={history.length}
@@ -180,7 +182,7 @@ const App: React.FC = () => {
               onSplit={(idx, pos) => handleSplitSegment(idx, pos, pushToHistory)}
             />
 
-            <div className="py-2.5 px-6 bg-white border-t border-slate-100 flex items-center justify-between">
+            <div className="py-2.5 px-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between transition-colors duration-300">
               <div className="flex items-center gap-2">
                 <div className="h-1 w-12 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: subtitles.length > 0 ? '100%' : '0%' }} />

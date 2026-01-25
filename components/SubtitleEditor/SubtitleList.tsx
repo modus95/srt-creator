@@ -27,10 +27,10 @@ export const SubtitleList: React.FC<SubtitleListProps> = ({
     onSplit
 }) => {
     return (
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/30 dark:bg-slate-900/50 custom-scrollbar transition-colors duration-300">
             {subtitles.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4 animate-in fade-in duration-500">
-                    <div className="p-6 bg-white rounded-full shadow-inner"><FileText size={48} className="opacity-10" /></div>
+                <div className="h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 space-y-4 animate-in fade-in duration-500">
+                    <div className="p-6 bg-white dark:bg-slate-800 rounded-full shadow-inner"><FileText size={48} className="opacity-10" /></div>
                     <p className="font-semibold text-slate-400 italic text-[14px]">Waiting for transcription results...</p>
                 </div>
             ) : (

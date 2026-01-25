@@ -23,8 +23,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     onToggleSlang
 }) => {
     return (
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <div className="flex items-center justify-between gap-2 text-slate-800 font-bold mb-1">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 transition-colors duration-300">
+            <div className="flex items-center justify-between gap-2 text-slate-800 dark:text-slate-200 font-bold mb-1">
                 <div className="flex items-center gap-1.5">
                     <Globe size={16} className={`text-indigo-600 ${preserveSlang ? 'animate-pulse' : ''}`} />
                     <h2 className="text-[13px] uppercase tracking-wider">Translate to</h2>
@@ -47,8 +47,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                         key={lang}
                         onClick={() => onToggleLanguage(lang)}
                         className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all border ${selectedLanguages.includes(lang)
-                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100 dark:shadow-none'
+                            : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-indigo-300 dark:hover:border-indigo-400'
                             }`}
                     >
                         {lang}
@@ -62,9 +62,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                     value={customLanguage}
                     onChange={e => onSetCustomLanguage(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && onAddCustomLanguage()}
-                    className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-[13px] dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder-slate-400"
                 />
-                <button onClick={onAddCustomLanguage} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors">
+                <button onClick={onAddCustomLanguage} className="p-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
                     <Plus size={14} />
                 </button>
             </div>

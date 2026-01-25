@@ -31,20 +31,20 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
     onExport
 }) => {
     return (
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30 transition-colors duration-300">
             <div className="flex flex-col">
-                <h2 className="text-lg font-extrabold text-slate-800 tracking-tight leading-none">Subtitle Editor</h2>
+                <h2 className="text-lg font-extrabold text-slate-800 dark:text-slate-200 tracking-tight leading-none">Subtitle Editor</h2>
                 <span className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">
                     {selectedCount > 0 ? `${selectedCount} Selected` : 'Smart Timing Mode'}
                 </span>
             </div>
 
             <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1 mr-2">
+                <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 mr-2 transition-colors duration-300">
                     <button
                         onClick={onUndo}
                         disabled={historyPointer <= 0}
-                        className="p-1.5 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                        className="p-1.5 rounded text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                         title="Undo (Ctrl+Z)"
                     >
                         <Undo2 size={14} />
@@ -52,7 +52,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                     <button
                         onClick={onRedo}
                         disabled={historyPointer >= historyLength - 1}
-                        className="p-1.5 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                        className="p-1.5 rounded text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                         title="Redo (Ctrl+Shift+Z)"
                     >
                         <Redo2 size={14} />
@@ -79,9 +79,9 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
                         <button
                             onClick={onSaveOriginal}
                             disabled={isProcessing}
-                            className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 px-3 py-2 rounded-lg font-bold text-[13px] hover:bg-slate-50 transition-all"
+                            className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-lg font-bold text-[13px] hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
                         >
-                            <Save size={14} className="text-slate-400" />
+                            <Save size={14} className="text-slate-400 dark:text-slate-500" />
                             Save SRT
                         </button>
 

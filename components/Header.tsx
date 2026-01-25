@@ -7,8 +7,8 @@ export const Header: React.FC = () => {
             <div className="inline-flex items-center justify-center mb-4">
                 <img src={FAVICON_BASE64} alt="SRT Creator Pro Logo" className="w-16 h-16 rounded-2xl shadow-lg shadow-indigo-100 object-cover" />
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">SRT Creator Pro</h1>
-            <p className="text-slate-500 text-sm">AI transcription & multi-language subtitles</p>
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-1 tracking-tight transition-colors duration-300">SRT Creator Pro</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm transition-colors duration-300">AI transcription & multi-language subtitles</p>
         </header>
     );
 };

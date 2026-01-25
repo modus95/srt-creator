@@ -33,11 +33,11 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
 }) => {
     if (!file) {
         return (
-            <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:border-indigo-400 transition-all bg-white shadow-sm group">
+            <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-8 text-center hover:border-indigo-400 dark:hover:border-indigo-400 transition-all bg-white dark:bg-slate-800 shadow-sm group">
                 <input type="file" accept="audio/*" onChange={onFileUpload} className="hidden" id="audio-upload" />
                 <label htmlFor="audio-upload" className="cursor-pointer">
                     <Upload className="mx-auto mb-3 text-slate-300 group-hover:text-indigo-400 transition-colors" size={40} />
-                    <span className="block text-base font-semibold text-slate-700">Upload Audio</span>
+                    <span className="block text-base font-semibold text-slate-700 dark:text-slate-200">Upload Audio</span>
                     <span className="text-xs text-slate-400 font-medium">Click or drop files</span>
                 </label>
             </div>
@@ -46,10 +46,10 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
 
     return (
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
                 <div className="flex items-center gap-2 overflow-hidden">
-                    <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg shrink-0"><Music size={14} /></div>
-                    <span className="font-semibold text-slate-700 truncate text-[14px]">{file.name}</span>
+                    <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg shrink-0"><Music size={14} /></div>
+                    <span className="font-semibold text-slate-700 dark:text-slate-200 truncate text-[14px]">{file.name}</span>
                 </div>
                 <button onClick={onRemoveFile} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Remove file"><Trash2 size={16} /></button>
             </div>
