@@ -74,30 +74,30 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRange
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition-colors duration-300">
       <audio controls src={src} className="w-full mb-6" />
 
       <div className="space-y-4">
-        <div className="flex justify-between items-center text-sm font-medium text-slate-600">
+        <div className="flex justify-between items-center text-sm font-medium text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400">Range:</span>
+            <span className="text-slate-400 dark:text-slate-500">Range:</span>
             <input
               type="text"
               value={startInput}
               onChange={(e) => setStartInput(e.target.value)}
               onBlur={handleStartInputBlur}
               onKeyDown={handleStartInputKeyDown}
-              className="w-14 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg text-[13px] font-mono focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all"
+              className="w-14 px-2 py-1 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[13px] font-mono focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all dark:text-slate-200"
               title="Start time (MM:SS)"
             />
-            <span className="text-slate-300">–</span>
+            <span className="text-slate-300 dark:text-slate-600">–</span>
             <input
               type="text"
               value={endInput}
               onChange={(e) => setEndInput(e.target.value)}
               onBlur={handleEndInputBlur}
               onKeyDown={handleEndInputKeyDown}
-              className="w-14 px-2 py-1 text-center bg-slate-50 border border-slate-200 rounded-lg text-[13px] font-mono focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all"
+              className="w-14 px-2 py-1 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-[13px] font-mono focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition-all dark:text-slate-200"
               title="End time (MM:SS)"
             />
           </div>
@@ -106,7 +106,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRange
 
         <div className="relative h-12 flex items-center">
           {/* Track background */}
-          <div className="absolute w-full h-2 bg-slate-200 rounded-lg" />
+          <div className="absolute w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg" />
 
           {/* Selected range highlight */}
           <div
@@ -141,7 +141,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, duration, range, onRange
           />
         </div>
 
-        <div className="flex justify-between text-xs text-slate-400">
+        <div className="flex justify-between text-xs text-slate-400 dark:text-slate-500">
           <span>0:00</span>
           <span>{formatTime(duration)}</span>
         </div>

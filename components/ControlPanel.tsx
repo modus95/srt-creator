@@ -32,8 +32,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                     onClick={onToggleSlang}
                     className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] uppercase tracking-wider transition-all border ${preserveSlang
-                        ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold shadow-sm'
-                        : 'bg-slate-50 border-slate-100 text-slate-400'
+                        ? 'bg-amber-50 border-amber-200 text-amber-700 font-bold shadow-sm dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400'
+                        : 'bg-slate-50 border-slate-100 text-slate-400 dark:bg-slate-900/50 dark:border-slate-700 dark:text-slate-500'
                         }`}
                     title="Translate with slang preservation"
                 >
