@@ -67,9 +67,9 @@ const App: React.FC = () => {
   };
 
   const performUndo = useCallback(() => {
-    const prev = undo(subtitles);
+    const prev = undo();
     if (prev) setSubtitles(prev);
-  }, [undo, subtitles, setSubtitles]);
+  }, [undo, setSubtitles]);
 
   const performRedo = useCallback(() => {
     const next = redo();

@@ -50,62 +50,61 @@ export const useSubtitleActions = (initialSubtitles: SubtitleEntry[] = []): UseS
     }, []);
 
     const handleDeleteSubtitle = useCallback((indexToDelete: number, pushToHistory: (subs: SubtitleEntry[]) => void) => {
-        setSubtitles(prev => {
-            const updated = prev
-                .filter((_, idx) => idx !== indexToDelete)
-                .map((sub, idx) => ({ ...sub, index: idx + 1 }));
-            pushToHistory(updated);
-            return updated;
-        });
+        const updated = subtitles
+            .filter((_, idx) => idx !== indexToDelete)
+            .map((sub, idx) => ({ ...sub, index: idx + 1 }));
+        
+        setSubtitles(updated);
+        pushToHistory(updated);
+        
         setSelectedIndices(prev => prev.filter(i => i !== indexToDelete).map(i => i > indexToDelete ? i - 1 : i));
-    }, []);
+    }, [subtitles]);
 
     const handleSplitSegment = useCallback((indexToSplit: number, cursorPosition: number, pushToHistory: (subs: SubtitleEntry[]) => void) => {
-        setSubtitles(prev => {
-            const segment = prev[indexToSplit];
-            if (!segment || cursorPosition <= 0 || cursorPosition >= segment.text.length) {
-                return prev;
-            }
+        const segment = subtitles[indexToSplit];
+        if (!segment || cursorPosition <= 0 || cursorPosition >= segment.text.length) {
+            return;
+        }
 
-            const leftText = segment.text.slice(0, cursorPosition).trim();
-            const rightText = segment.text.slice(cursorPosition).trim();
+        const leftText = segment.text.slice(0, cursorPosition).trim();
+        const rightText = segment.text.slice(cursorPosition).trim();
 
-            const startSeconds = timeToSeconds(segment.startTime);
-            const endSeconds = timeToSeconds(segment.endTime);
-            const totalDuration = endSeconds - startSeconds;
+        const startSeconds = timeToSeconds(segment.startTime);
+        const endSeconds = timeToSeconds(segment.endTime);
+        const totalDuration = endSeconds - startSeconds;
 
-            const splitRatio = cursorPosition / segment.text.length;
-            const splitSeconds = startSeconds + (totalDuration * splitRatio);
-            const splitTime = formatSecondsToMMSS(splitSeconds);
+        const splitRatio = cursorPosition / segment.text.length;
+        const splitSeconds = startSeconds + (totalDuration * splitRatio);
+        const splitTime = formatSecondsToMMSS(splitSeconds);
 
-            const leftSegment: SubtitleEntry = {
-                index: segment.index,
-                startTime: segment.startTime,
-                endTime: splitTime,
-                text: leftText || '...'
-            };
+        const leftSegment: SubtitleEntry = {
+            index: segment.index,
+            startTime: segment.startTime,
+            endTime: splitTime,
+            text: leftText || '...'
+        };
 
-            const rightSegment: SubtitleEntry = {
-                index: segment.index + 1,
-                startTime: splitTime,
-                endTime: segment.endTime,
-                text: rightText || '...'
-            };
+        const rightSegment: SubtitleEntry = {
+            index: segment.index + 1,
+            startTime: splitTime,
+            endTime: segment.endTime,
+            text: rightText || '...'
+        };
 
-            const newSubtitles: SubtitleEntry[] = [
-                ...prev.slice(0, indexToSplit),
-                leftSegment,
-                rightSegment,
-                ...prev.slice(indexToSplit + 1)
-            ];
+        const newSubtitles: SubtitleEntry[] = [
+            ...subtitles.slice(0, indexToSplit),
+            leftSegment,
+            rightSegment,
+            ...subtitles.slice(indexToSplit + 1)
+        ];
 
-            const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
-            pushToHistory(reindexed);
-            return reindexed;
-        });
+        const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
+        
+        setSubtitles(reindexed);
+        pushToHistory(reindexed);
 
         setSelectedIndices(prev => prev.map(i => i > indexToSplit ? i + 1 : i));
-    }, []);
+    }, [subtitles]);
 
     const handleToggleSelect = useCallback((index: number, shiftKey: boolean = false) => {
         if (shiftKey && lastSelectedIndex !== null && lastSelectedIndex !== index) {
@@ -127,41 +126,39 @@ export const useSubtitleActions = (initialSubtitles: SubtitleEntry[] = []): UseS
     const handleMergeSelected = useCallback((pushToHistory: (subs: SubtitleEntry[]) => void) => {
         if (!isSelectionConsecutive) return;
 
-        setSubtitles(prev => {
-            const sorted = [...selectedIndices].sort((a, b) => a - b);
-            const firstIdx = sorted[0];
-            const lastIdx = sorted[sorted.length - 1];
+        const sorted = [...selectedIndices].sort((a, b) => a - b);
+        const firstIdx = sorted[0];
+        const lastIdx = sorted[sorted.length - 1];
 
-            const mergedText = sorted.map(i => prev[i].text).join(' ');
-            const startTime = prev[firstIdx].startTime;
-            const endTime = prev[lastIdx].endTime;
+        const mergedText = sorted.map(i => subtitles[i].text).join(' ');
+        const startTime = subtitles[firstIdx].startTime;
+        const endTime = subtitles[lastIdx].endTime;
 
-            const newSubtitles: SubtitleEntry[] = [];
+        const newSubtitles: SubtitleEntry[] = [];
 
-            for (let i = 0; i < firstIdx; i++) {
-                newSubtitles.push(prev[i]);
-            }
+        for (let i = 0; i < firstIdx; i++) {
+            newSubtitles.push(subtitles[i]);
+        }
 
-            newSubtitles.push({
-                index: firstIdx + 1,
-                startTime,
-                endTime,
-                text: mergedText
-            });
-
-            for (let i = 0; i < prev.length; i++) {
-                if (i > lastIdx) {
-                    newSubtitles.push(prev[i]);
-                }
-            }
-
-            const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
-            pushToHistory(reindexed);
-            return reindexed;
+        newSubtitles.push({
+            index: firstIdx + 1,
+            startTime,
+            endTime,
+            text: mergedText
         });
 
+        for (let i = 0; i < subtitles.length; i++) {
+            if (i > lastIdx) {
+                newSubtitles.push(subtitles[i]);
+            }
+        }
+
+        const reindexed = newSubtitles.map((sub, idx) => ({ ...sub, index: idx + 1 }));
+        
+        setSubtitles(reindexed);
+        pushToHistory(reindexed);
         setSelectedIndices([]);
-    }, [isSelectionConsecutive, selectedIndices]);
+    }, [isSelectionConsecutive, selectedIndices, subtitles]);
 
     return {
         subtitles,

@@ -3,21 +3,50 @@ import { SubtitleEntry } from '../types';
 
 const MAX_HISTORY = 50;
 
-export const useSubtitleHistory = (initialSubtitles: SubtitleEntry[]) => {
+export interface UseSubtitleHistoryReturn {
+    history: SubtitleEntry[][];
+    historyPointer: number;
+    canUndo: boolean;
+    canRedo: boolean;
+    pushToHistory: (newState: SubtitleEntry[]) => void;
+    undo: () => SubtitleEntry[] | null;
+    redo: () => SubtitleEntry[] | null;
+    resetHistory: () => void;
+}
+
+export const useSubtitleHistory = (initialSubtitles: SubtitleEntry[] = []): UseSubtitleHistoryReturn => {
     const [history, setHistory] = useState<SubtitleEntry[][]>([]);
     const [historyPointer, setHistoryPointer] = useState(-1);
 
+    const canUndo = historyPointer > 0;
+    const canRedo = historyPointer < history.length - 1;
+
     const pushToHistory = useCallback((newState: SubtitleEntry[]) => {
+        if (historyPointer >= 0 && history.length > 0) {
+            const currentTip = history[historyPointer];
+            if (JSON.stringify(currentTip) === JSON.stringify(newState)) {
+                return;
+            }
+        }
+
+        const stateClone = JSON.parse(JSON.stringify(newState));
+
         setHistory(prev => {
             const newHistory = prev.slice(0, historyPointer + 1);
-            newHistory.push(JSON.parse(JSON.stringify(newState)));
-            if (newHistory.length > MAX_HISTORY) newHistory.shift();
+            newHistory.push(stateClone);
+            if (newHistory.length > MAX_HISTORY) {
+                newHistory.shift();
+            }
             return newHistory;
         });
-        setHistoryPointer(prev => Math.min(prev + 1, MAX_HISTORY - 1));
-    }, [historyPointer]);
 
-    const undo = useCallback((currentSubtitles: SubtitleEntry[]) => {
+        setHistoryPointer(prev => {
+            const next = prev + 1;
+            return Math.min(next, MAX_HISTORY - 1);
+        });
+    }, [history, historyPointer]);
+
+    const undo = useCallback(() => {
         if (historyPointer > 0) {
             const prevPointer = historyPointer - 1;
             const previousState = JSON.parse(JSON.stringify(history[prevPointer]));
@@ -45,6 +74,8 @@ export const useSubtitleHistory = (initialSubtitles: SubtitleEntry[]) => {
     return {
         history,
         historyPointer,
+        canUndo,
+        canRedo,
         pushToHistory,
         undo,
         redo,
